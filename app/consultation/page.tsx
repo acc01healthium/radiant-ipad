@@ -4,8 +4,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CategoryType, Treatment } from '@/types';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
 import { ChevronLeft, Check, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function ConsultationPage() {
@@ -26,18 +25,23 @@ export default function ConsultationPage() {
     );
   };
 
+  // Fetch treatments from Supabase instead of the deprecated Firebase db to fix type mismatch
   const handleNext = async () => {
     if (selectedIssues.length === 0) return;
     
     setLoading(true);
     setError(null);
     try {
-      const q = collection(db, 'treatments');
-      const querySnapshot = await getDocs(q);
-      const allTreatments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Treatment));
+      const { data, error } = await supabase
+        .from('treatments')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const allTreatments = (data || []) as Treatment[];
       
       const filtered = allTreatments.filter(t => 
-        t.categories.some(cat => selectedIssues.includes(cat))
+        t.categories && t.categories.some(cat => selectedIssues.includes(cat))
       );
       
       setRecommendations(filtered);
@@ -143,7 +147,7 @@ export default function ConsultationPage() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                     <div className="absolute bottom-6 left-6 flex gap-2">
-                      {treatment.categories.map(cat => (
+                      {treatment.categories && treatment.categories.map(cat => (
                         <span key={cat} className="text-[10px] px-3 py-1 bg-white/20 backdrop-blur-md text-white rounded-full uppercase tracking-widest">{cat}</span>
                       ))}
                     </div>

@@ -4,8 +4,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
@@ -15,8 +14,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (pathname === '/admin/login') return <>{children}</>;
 
+  // Use Supabase for sign out as the app has migrated from Firebase
   const handleLogout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     router.push('/');
   };
 
