@@ -7,11 +7,12 @@ import { Sparkles, ChevronRight, MapPin, Clock, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * 強制 Next.js 進入動態渲染模式
- * revalidate = 0 確保 Vercel Edge Cache 不會儲存此頁面的 HTML
+ * 徹底解決快取問題：
+ * 1. force-dynamic: 停用靜態生成，每次請求都重新運行
+ * 2. revalidate = 0: 確保 Edge Network 不會儲存舊頁面
  */
-export const revalidate = 0;
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default function HomePage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -23,9 +24,9 @@ export default function HomePage() {
       setLoading(true);
       try {
         /**
-         * 抓取設定：
-         * 1. 鎖定 id = 'clinic_main'
-         * 2. 抓取 logo_url, clinic_name
+         * 從 settings 表抓取品牌視覺
+         * 欄位：logo_url, clinic_name
+         * ID：clinic_main
          */
         const { data, error } = await supabase
           .from('settings')
@@ -34,27 +35,25 @@ export default function HomePage() {
           .single();
         
         if (error) {
-          console.warn("Supabase 抓取 clinic_main 失敗，嘗試備援方案:", error.message);
+          console.warn("[Page] 讀取配置失敗，可能尚未設定 clinic_main:", error.message);
           
-          // 備援方案：如果 clinic_main 不存在，抓取第一筆資料
-          const { data: backupData } = await supabase
+          // 備援：嘗試讀取隨意一筆資料
+          const { data: fallback } = await supabase
             .from('settings')
-            .select('logo_url, clinic_name')
+            .select('*')
             .limit(1)
             .single();
             
-          if (backupData) {
-            setLogoUrl(backupData.logo_url);
-            setClinicName(backupData.clinic_name || '亮立美學');
+          if (fallback) {
+            setLogoUrl(fallback.logo_url);
+            setClinicName(fallback.clinic_name || '亮立美學');
           }
         } else if (data) {
-          // 成功抓取到最新的設定
           setLogoUrl(data.logo_url);
           setClinicName(data.clinic_name || '亮立美學');
-          console.log("成功載入品牌設定:", data.clinic_name);
         }
       } catch (err) {
-        console.error("連線至 Supabase 發生嚴重錯誤:", err);
+        console.error("[Page] 嚴重連線錯誤:", err);
       } finally {
         setLoading(false);
       }
@@ -65,21 +64,20 @@ export default function HomePage() {
 
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
-      {/* 裝飾性背景 */}
+      {/* 裝飾背景 */}
       <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-clinic-rose/20 blur-3xl animate-float"></div>
       <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
 
       <div className="z-10 w-full max-w-4xl flex flex-col items-center animate-fade-in">
         <div className="mb-12 text-center">
           <div className="relative inline-block mb-8">
-            {/* Logo 容器 */}
             <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
               <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
                 {loading ? (
                   <Loader2 className="animate-spin text-clinic-gold/30" size={32} />
                 ) : logoUrl ? (
                   <img 
-                    src={`${logoUrl}?t=${Date.now()}`} // 加入 Timestamp 確保瀏覽器不快取圖片
+                    src={`${logoUrl}?t=${new Date().getTime()}`} // 附加時間戳避免瀏覽器快取圖片
                     alt={clinicName} 
                     className="w-full h-full object-cover" 
                   />
@@ -130,9 +128,8 @@ export default function HomePage() {
         </div>
       </div>
       
-      {/* 底部資訊 */}
       <div className="absolute bottom-8 flex flex-col items-center gap-2 text-gray-400">
-        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Radiant Digital System v1.2</p>
+        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Radiant Cloud System</p>
         <Link href="/admin/login" className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30">
           管理員安全存取
         </Link>
