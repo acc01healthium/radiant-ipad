@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -123,9 +122,13 @@ export default function TreatmentListPage() {
                       {t.improvement_categories?.name || '未關聯'}
                     </span>
                   </td>
-                  <td className="p-8 font-black text-clinic-gold">NT$ {t.price.toLocaleString()}</td>
+                  <td className="p-8 font-black text-clinic-gold">
+                    {/* 修改位置：第 140 行，增加 null-safe 處理 */}
+                    NT$ {t.price !== null && t.price !== undefined ? t.price.toLocaleString() : '-'}
+                  </td>
                   <td className="p-8 text-right flex justify-end gap-3">
                     <button onClick={() => openModal(t)} className="p-3 border rounded-xl hover:bg-gray-100"><Edit3 size={18} /></button>
+                    <button onClick={async () => { if(confirm('確定要刪除此療程？')) { await supabase.from('treatments').delete().eq('id', t.id); fetchData(); }}} className="p-3 border rounded-xl hover:bg-red-50 text-red-500"><Trash2 size={18} /></button>
                   </td>
                 </tr>
               ))}

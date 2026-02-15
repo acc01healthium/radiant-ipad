@@ -1,4 +1,5 @@
 
+import React from 'react';
 import './globals.css';
 import type { Metadata } from 'next';
 
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
   description: '專業醫美諮詢系統',
 };
 
+// Fixed: Explicitly imported React to resolve the namespace error for React.ReactNode
 export default function RootLayout({
   children,
 }: {
