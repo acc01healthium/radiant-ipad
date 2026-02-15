@@ -31,12 +31,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with offline persistence and long polling for better compatibility in sandboxed environments
+// Initialize Firestore with offline persistence
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  }),
-  // experimentalForceLongPolling: true // Uncomment if still facing persistent "offline" errors in specific restricted networks
+  })
 });
 
 export const auth = getAuth(app);
@@ -63,41 +62,54 @@ export const updateGeneralSettings = async (data: any) => {
 
 // Seed Data Function
 export const seedInitialData = async () => {
+  // 1. 初始化系統設定 (LOGO)
+  const settingsRef = doc(db, 'settings', 'general');
+  const settingsSnap = await getDoc(settingsRef);
+  if (!settingsSnap.exists()) {
+    console.log('Initializing settings...');
+    await setDoc(settingsRef, {
+      logoUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png', // 預設一個醫療美學圖標
+      clinicName: '亮立美學',
+      clinicNameEn: 'Radiant Clinic'
+    });
+  }
+
+  // 2. 初始化範例療程
   const initialTreatments: Omit<Treatment, 'id'>[] = [
     {
-      name: '皮秒雷射 (Picosure)',
+      name: '探索皮秒雷射 (Discovery Pico)',
       price: 8800,
       description: '全方位改善斑點、毛孔與膚色不均。利用極短脈衝產生光震波效應。',
       categories: [CategoryType.SPOTS, CategoryType.PORES],
-      imageUrl: 'https://picsum.photos/seed/laser/400/300'
+      imageUrl: 'https://picsum.photos/seed/pico/400/300'
     },
     {
-      name: '肉毒桿菌素 (Botox)',
+      name: '肉毒桿菌素 (Botox/Dysport)',
       price: 4500,
-      description: '放鬆動態皺紋（魚尾紋、抬頭紋），打造平滑肌膚。',
+      description: '針對皺紋部位進行放鬆，改善動態紋路如抬頭紋、魚尾紋。',
       categories: [CategoryType.WRINKLES],
       imageUrl: 'https://picsum.photos/seed/botox/400/300'
     },
     {
-      name: '玻尿酸填充 (Hyaluronic Acid)',
-      price: 15000,
-      description: '填補凹陷部位（如淚溝、蘋果肌），恢復臉部澎潤感。',
-      categories: [CategoryType.WRINKLES, CategoryType.SAGGING],
-      imageUrl: 'https://picsum.photos/seed/filler/400/300'
-    },
-    {
-      name: '海芙音波 (Ultraformer III)',
+      name: '海芙音波拉提 (Ultraformer)',
       price: 32000,
-      description: '非侵入式深層拉提，改善臉部輪廓鬆弛與下顎線。',
-      categories: [CategoryType.SAGGING],
+      description: '非侵入式深層拉提，改善臉部輪廓鬆弛與下顎線條。',
+      categories: [CategoryType.LIFTING],
       imageUrl: 'https://picsum.photos/seed/lifting/400/300'
     },
     {
-      name: '淨膚雷射',
-      price: 3000,
-      description: '亮白肌膚，淡化泛紅與改善發炎性痘疤。',
-      categories: [CategoryType.REDNESS, CategoryType.ACNE],
-      imageUrl: 'https://picsum.photos/seed/whitening/400/300'
+      name: '玻尿酸填補 (Restylane/Juvederm)',
+      price: 15000,
+      description: '針對凹陷部位如淚溝、蘋果肌、法令紋進行微整填補。',
+      categories: [CategoryType.FILLERS],
+      imageUrl: 'https://picsum.photos/seed/fillers/400/300'
+    },
+    {
+      name: '真空除毛雷射',
+      price: 2000,
+      description: '舒適、快速、低痛感的專業除毛療程。',
+      categories: [CategoryType.HAIR_REMOVAL],
+      imageUrl: 'https://picsum.photos/seed/hair/400/300'
     }
   ];
 
@@ -105,8 +117,9 @@ export const seedInitialData = async () => {
     const treatmentsCol = collection(db, 'treatments');
     const snapshot = await getDocs(treatmentsCol);
     
+    // 只有在沒有資料時才寫入，避免重複
     if (snapshot.empty) {
-      console.log('Seeding initial data...');
+      console.log('Seeding initial treatments...');
       for (const t of initialTreatments) {
         await addDoc(treatmentsCol, t);
       }

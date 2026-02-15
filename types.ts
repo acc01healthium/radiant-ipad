@@ -3,9 +3,9 @@ export enum CategoryType {
   SPOTS = '斑點',
   WRINKLES = '皺紋',
   PORES = '毛孔',
-  SAGGING = '鬆弛',
-  REDNESS = '泛紅',
-  ACNE = '痘痘'
+  LIFTING = '拉提',
+  HAIR_REMOVAL = '除毛',
+  FILLERS = '微整填補'
 }
 
 export interface Treatment {

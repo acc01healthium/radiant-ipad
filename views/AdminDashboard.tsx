@@ -12,11 +12,15 @@ export default function AdminDashboard() {
   const handleSeed = async () => {
     setSeeding(true);
     setSeedStatus('處理中...');
-    const result = await seedInitialData();
-    if (result) {
-      setSeedStatus('初始化成功！已填入範例資料與分類。');
-    } else {
-      setSeedStatus('資料庫已有資料，不需再次初始化。');
+    try {
+      const result = await seedInitialData();
+      if (result) {
+        setSeedStatus('初始化成功！已填入範例分類、療程與 LOGO 設定。');
+      } else {
+        setSeedStatus('資料庫已有資料，但已確保系統設定 (LOGO) 已初始化。');
+      }
+    } catch (err) {
+      setSeedStatus('初始化失敗，請檢查 Firebase 設定。');
     }
     setSeeding(false);
   };
@@ -40,7 +44,7 @@ export default function AdminDashboard() {
           className="flex items-center gap-2 px-6 py-3 bg-[#D4AF37] text-white rounded-xl shadow-lg hover:bg-yellow-600 transition-all disabled:opacity-50"
         >
           {seeding ? <Loader2 className="animate-spin" size={20} /> : <Database size={20} />}
-          初始化範例資料 (Seed)
+          初始化診所資料 (Seed Data)
         </button>
       </div>
 
