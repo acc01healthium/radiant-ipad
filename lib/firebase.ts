@@ -1,5 +1,5 @@
 
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
@@ -13,7 +13,7 @@ import {
   persistentMultipleTabManager
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage } from 'firebase/storage';
 import { CategoryType, Treatment } from '../types';
 
 const firebaseConfig = {
@@ -25,13 +25,11 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
+// 確保不重複初始化 App
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+// 簡化 Firestore 初始化，優先確保連通性
+export const db = getFirestore(app);
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
@@ -43,10 +41,12 @@ export const getGeneralSettings = async () => {
     if (docSnap.exists()) {
       return docSnap.data();
     }
+    // 如果文件不存在，返回預設值而非 null，避免前端渲染判斷錯誤
+    return { logoUrl: '', clinicName: '亮立美學' };
   } catch (error) {
-    console.warn("Firestore connectivity issue:", error);
+    console.error("Firestore getGeneralSettings Error:", error);
+    return null;
   }
-  return null;
 };
 
 export const updateGeneralSettings = async (data: any) => {
@@ -57,6 +57,7 @@ export const updateGeneralSettings = async (data: any) => {
 export const seedInitialData = async () => {
   const settingsRef = doc(db, 'settings', 'general');
   const settingsSnap = await getDoc(settingsRef);
+  
   if (!settingsSnap.exists()) {
     await setDoc(settingsRef, {
       logoUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
@@ -86,20 +87,6 @@ export const seedInitialData = async () => {
       description: '非侵入式深層拉提，改善臉部輪廓鬆弛與下顎線條。',
       categories: [CategoryType.LIFTING],
       imageUrl: 'https://picsum.photos/seed/lifting/400/300'
-    },
-    {
-      name: '玻尿酸填補 (Restylane/Juvederm)',
-      price: 15000,
-      description: '針對凹陷部位如淚溝、蘋果肌、法令紋進行微整填補。',
-      categories: [CategoryType.FILLERS],
-      imageUrl: 'https://picsum.photos/seed/fillers/400/300'
-    },
-    {
-      name: '真空除毛雷射',
-      price: 2000,
-      description: '舒適、快速、低痛感的專業除毛療程。',
-      categories: [CategoryType.HAIR_REMOVAL],
-      imageUrl: 'https://picsum.photos/seed/hair/400/300'
     }
   ];
 
@@ -117,10 +104,4 @@ export const seedInitialData = async () => {
     throw error;
   }
   return false;
-};
-
-export const uploadFile = async (file: File, path: string) => {
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
 };

@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { seedInitialData } from '@/lib/firebase';
-import { Database, Plus, Users, Image as ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
+import { Database, Plus, Users, ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">控制面板概覽</h2>
@@ -111,8 +111,8 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold text-green-500 px-2 py-1 bg-green-50 rounded">運作中</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">Storage</span>
-              <span className="text-xs font-bold text-green-500 px-2 py-1 bg-green-50 rounded">運作中</span>
+              <span className="text-sm text-gray-600">Cloudinary</span>
+              <span className="text-xs font-bold text-blue-500 px-2 py-1 bg-blue-50 rounded">已整合</span>
             </div>
           </div>
         </div>

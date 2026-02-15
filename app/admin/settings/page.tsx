@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { getGeneralSettings, updateGeneralSettings } from '@/lib/firebase';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
-import { Image as ImageIcon, Save, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { ImageIcon, Save, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
 export default function SystemSettingsPage() {
   const [logoUrl, setLogoUrl] = useState('');
@@ -15,22 +15,22 @@ export default function SystemSettingsPage() {
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    setLoading(true);
-    try {
-      const settings = await getGeneralSettings();
-      if (settings) {
-        setLogoUrl(settings.logoUrl || '');
+    let isMounted = true;
+    const fetchSettings = async () => {
+      try {
+        const settings = await getGeneralSettings();
+        if (isMounted && settings) {
+          setLogoUrl(settings.logoUrl || '');
+        }
+      } catch (e) {
+        console.error("Fetch Settings Error:", e);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    fetchSettings();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -48,14 +48,13 @@ export default function SystemSettingsPage() {
     try {
       let finalLogoUrl = logoUrl;
       
-      // 如果有選擇新檔案，則上傳至 Cloudinary
       if (file) {
         finalLogoUrl = await uploadImageToCloudinary(file);
         setLogoUrl(finalLogoUrl);
       }
       
       await updateGeneralSettings({ logoUrl: finalLogoUrl });
-      setStatus({ type: 'success', msg: '設定已成功儲存至資料庫與 Cloudinary' });
+      setStatus({ type: 'success', msg: '設定已成功儲存' });
       setFile(null);
       setPreview(null);
     } catch (error: any) {
@@ -66,10 +65,17 @@ export default function SystemSettingsPage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-gray-400" size={40} /></div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <Loader2 className="animate-spin text-clinic-gold" size={48} />
+        <p className="text-gray-400 animate-pulse">正在載入系統設定...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl space-y-8 animate-fade-in">
+    <div className="max-w-4xl space-y-8">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">系統設定</h2>
@@ -78,7 +84,7 @@ export default function SystemSettingsPage() {
         <button 
           onClick={handleSave}
           disabled={saving}
-          className="btn-gold px-10"
+          className="btn-gold px-10 disabled:opacity-50"
         >
           {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
           儲存變更
