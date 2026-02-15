@@ -5,11 +5,7 @@ import {
   collection, 
   addDoc, 
   getDocs, 
-  query, 
-  where, 
   doc, 
-  updateDoc, 
-  deleteDoc, 
   setDoc, 
   getDoc,
   initializeFirestore,
@@ -21,9 +17,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CategoryType, Treatment } from '../types';
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSy...",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "liangli-aesthetics",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
@@ -62,19 +58,16 @@ export const updateGeneralSettings = async (data: any) => {
 
 // Seed Data Function
 export const seedInitialData = async () => {
-  // 1. 初始化系統設定 (LOGO)
   const settingsRef = doc(db, 'settings', 'general');
   const settingsSnap = await getDoc(settingsRef);
   if (!settingsSnap.exists()) {
-    console.log('Initializing settings...');
     await setDoc(settingsRef, {
-      logoUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png', // 預設一個醫療美學圖標
+      logoUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
       clinicName: '亮立美學',
       clinicNameEn: 'Radiant Clinic'
     });
   }
 
-  // 2. 初始化範例療程
   const initialTreatments: Omit<Treatment, 'id'>[] = [
     {
       name: '探索皮秒雷射 (Discovery Pico)',
@@ -116,23 +109,19 @@ export const seedInitialData = async () => {
   try {
     const treatmentsCol = collection(db, 'treatments');
     const snapshot = await getDocs(treatmentsCol);
-    
-    // 只有在沒有資料時才寫入，避免重複
     if (snapshot.empty) {
-      console.log('Seeding initial treatments...');
       for (const t of initialTreatments) {
         await addDoc(treatmentsCol, t);
       }
       return true;
     }
   } catch (error) {
-    console.error("Error during seeding:", error);
+    console.error("Error seeding:", error);
     throw error;
   }
   return false;
 };
 
-// Storage Helpers
 export const uploadFile = async (file: File, path: string) => {
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, file);

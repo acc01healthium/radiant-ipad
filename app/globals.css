@@ -1,0 +1,42 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rose-gold: #E0B0FF;
+  --gold: #D4AF37;
+  --bg-cream: #FDFBF7;
+}
+
+body {
+  background-color: var(--bg-cream);
+  color: #1f2937;
+  font-family: 'Noto Sans TC', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rose-gold-gradient {
+  background: linear-gradient(135deg, #E0B0FF 0%, #F8E8FF 100%);
+}
+
+.gold-text {
+  color: var(--gold);
+}
+
+.gold-border {
+  border-color: var(--gold);
+}
+
+.gold-bg {
+  background-color: var(--gold);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
+}
