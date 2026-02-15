@@ -11,6 +11,7 @@
 }
 
 @layer components {
+  /* 按鈕樣式 */
   .btn-gold {
     @apply px-8 py-4 bg-clinic-gold text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] active:scale-95 font-medium flex items-center justify-center gap-2;
   }
@@ -19,12 +20,27 @@
     @apply px-8 py-4 border-2 border-clinic-gold text-clinic-gold rounded-full transition-all duration-300 hover:bg-clinic-gold hover:text-white active:scale-95 font-medium flex items-center justify-center gap-2;
   }
 
+  /* 玻璃擬態卡片 */
   .glass-card {
     @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-3xl;
   }
 
+  /* 輸入框樣式 */
   .input-field {
     @apply w-full px-5 py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-clinic-rose focus:border-transparent outline-none transition-all;
+  }
+
+  /* 常用顏色類別補強 */
+  .gold-text {
+    @apply text-clinic-gold;
+  }
+
+  .gold-bg {
+    @apply bg-clinic-gold;
+  }
+
+  .rose-gold-gradient {
+    @apply bg-gradient-to-br from-clinic-rose via-clinic-gold to-[#B8860B];
   }
 }
 
