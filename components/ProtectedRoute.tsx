@@ -5,8 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-// Fixed: Added React to the import list to resolve the "Cannot find namespace React" error when using React.ReactNode.
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+// Fixed: Made children optional to resolve the "Property 'children' is missing in type '{}'" error when used in layout.tsx.
+export default function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 

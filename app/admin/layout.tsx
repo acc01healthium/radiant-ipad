@@ -1,11 +1,10 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon, Tags } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +65,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <nav className="flex-1 p-5 space-y-2">
             <Link href="/admin" className={navItemClass('/admin')}>
               <LayoutDashboard size={20} /> 控制面板
+            </Link>
+            <Link href="/admin/improvement-categories" className={navItemClass('/admin/improvement-categories')}>
+              <Tags size={20} /> 欲改善項目
             </Link>
             <Link href="/admin/treatments" className={navItemClass('/admin/treatments')}>
               <Package size={20} /> 療程項目
