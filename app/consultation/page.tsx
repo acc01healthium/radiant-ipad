@@ -1,75 +1,96 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CategoryType, Treatment } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Check, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Check, Sparkles, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function ConsultationPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [selectedIssues, setSelectedIssues] = useState<CategoryType[]>([]);
-  const [recommendations, setRecommendations] = useState<Treatment[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 動態資料
+  const [categories, setCategories] = useState<any[]>([]);
+  const [systemTexts, setSystemTexts] = useState<Record<string, string>>({});
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
 
-  const categories = Object.values(CategoryType);
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
-  const toggleIssue = (issue: CategoryType) => {
-    setSelectedIssues(prev => 
-      prev.includes(issue) 
-        ? prev.filter(i => i !== issue) 
-        : [...prev, issue]
-    );
-  };
-
-  const handleNext = async () => {
-    if (selectedIssues.length === 0) return;
-    
+  const fetchInitialData = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const { data, error } = await supabase
-        .from('treatments')
-        .select('*');
-      
-      if (error) throw error;
-      
-      const allTreatments = (data || []) as Treatment[];
-      
-      // 根據 icon_name 或標題進行關鍵字過濾 (根據您的 SQL 結構調整)
-      const filtered = allTreatments.filter(t => 
-        selectedIssues.some(issue => 
-          t.icon_name?.includes(issue) || t.title?.includes(issue)
-        )
-      );
-      
-      setRecommendations(filtered);
-      setStep(2);
-    } catch (error: any) {
-      console.error("Consultation fetch error:", error);
-      setError("資料載入失敗，請確認網路連線或資料表設定。");
+      const [catsRes, textsRes] = await Promise.all([
+        supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase.from('system_texts').select('*')
+      ]);
+
+      if (catsRes.error) throw catsRes.error;
+      setCategories(catsRes.data || []);
+
+      const texts = (textsRes.data || []).reduce((acc: any, curr) => {
+        acc[curr.key] = curr.value;
+        return acc;
+      }, {});
+      setSystemTexts(texts);
+    } catch (err: any) {
+      setError('系統資料初始化失敗');
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleNext = async () => {
+    if (selectedCategoryIds.length === 0) return;
+    setLoading(true);
+    try {
+      // 根據選中的 category IDs 篩選療程
+      const { data, error } = await supabase
+        .from('treatments')
+        .select('*')
+        .in('improvement_category_id', selectedCategoryIds);
+      
+      if (error) throw error;
+      setRecommendations(data || []);
+      setStep(2);
+    } catch (err: any) {
+      setError('推薦方案生成失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && step === 1 && categories.length === 0) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-clinic-cream">
+        <Loader2 className="animate-spin text-clinic-gold" size={48} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-clinic-cream flex flex-col p-8 md:p-12 relative overflow-hidden bg-pattern">
-      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-clinic-rose/10 blur-3xl"></div>
-
       <header className="flex items-center justify-between mb-16 z-10">
         <button 
           onClick={() => step === 1 ? router.push('/') : setStep(1)}
-          className="p-4 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all active:scale-95"
+          className="p-4 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold active:scale-95"
         >
           <ChevronLeft size={32} />
         </button>
         <div className="text-center">
           <h2 className="text-3xl font-light text-clinic-dark tracking-widest">
-            {step === 1 ? '您的肌膚困擾' : '專業推薦方案'}
+            {step === 1 ? (systemTexts['consult_step1_title'] || '您的肌膚困擾') : (systemTexts['consult_step2_title'] || '專業推薦方案')}
           </h2>
           <div className="flex justify-center mt-2 gap-1">
             <div className={`h-1.5 w-12 rounded-full transition-all ${step === 1 ? 'bg-clinic-gold' : 'bg-gray-200'}`}></div>
@@ -79,97 +100,56 @@ export default function ConsultationPage() {
         <div className="w-16"></div>
       </header>
 
-      {error && (
-        <div className="max-w-md mx-auto mb-8 flex items-center gap-3 p-5 bg-red-50 text-red-700 rounded-3xl border border-red-100 shadow-sm animate-fade-in">
-          <AlertCircle size={24} />
-          {error}
-        </div>
-      )}
+      {error && <div className="max-w-md mx-auto mb-8 p-5 bg-red-50 text-red-700 rounded-3xl border border-red-100 flex items-center gap-2"><AlertCircle /> {error}</div>}
 
       {step === 1 ? (
-        <div className="flex-1 flex flex-col items-center max-w-5xl mx-auto w-full z-10 animate-fade-in">
+        <div className="flex-1 flex flex-col items-center max-w-5xl mx-auto w-full z-10">
           <div className="mb-16 text-center">
-            <h3 className="text-4xl font-light text-gray-700 mb-6">請選擇欲改善的項目</h3>
-            <p className="text-gray-400 text-lg">讓我們為您量身打造專屬療程計劃</p>
+            <h3 className="text-4xl font-light text-gray-700 mb-6">{systemTexts['consult_instruction']}</h3>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-10 w-full">
             {categories.map((cat) => {
-              const isSelected = selectedIssues.includes(cat);
+              const isSelected = selectedCategoryIds.includes(cat.id);
               return (
                 <button
-                  key={cat}
-                  onClick={() => toggleIssue(cat)}
+                  key={cat.id}
+                  onClick={() => toggleCategory(cat.id)}
                   className={`
                     aspect-square rounded-full flex flex-col items-center justify-center gap-4 transition-all duration-500 transform active:scale-90 relative
-                    ${isSelected 
-                      ? 'bg-clinic-rose text-white shadow-[0_20px_40px_rgba(224,176,255,0.4)] scale-110 border-4 border-white' 
-                      : 'bg-white text-gray-600 hover:shadow-xl hover:-translate-y-2 border border-gray-100'}
+                    ${isSelected ? 'bg-clinic-rose text-white shadow-xl scale-110 border-4 border-white' : 'bg-white text-gray-600 hover:shadow-lg border border-gray-100'}
                   `}
                 >
-                  <div className={`p-5 rounded-full ${isSelected ? 'bg-white/20' : 'bg-clinic-cream'}`}>
-                    <Sparkles size={isSelected ? 40 : 32} className={isSelected ? 'text-white' : 'text-clinic-gold'} />
-                  </div>
-                  <span className="text-2xl font-medium">{cat}</span>
-                  {isSelected && (
-                    <div className="absolute -top-2 -right-2 bg-clinic-gold p-2 rounded-full shadow-lg animate-fade-in">
-                      <Check size={20} className="text-white" />
-                    </div>
-                  )}
+                  <Sparkles size={isSelected ? 40 : 32} className={isSelected ? 'text-white' : 'text-clinic-gold'} />
+                  <span className="text-2xl font-medium">{cat.name}</span>
+                  {isSelected && <div className="absolute -top-2 -right-2 bg-clinic-gold p-2 rounded-full shadow-lg"><Check size={20} className="text-white" /></div>}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-20">
-            <button
-              disabled={selectedIssues.length === 0 || loading}
-              onClick={handleNext}
-              className={`
-                btn-gold text-2xl px-20 py-6
-                ${selectedIssues.length === 0 ? 'opacity-30 cursor-not-allowed scale-100' : 'animate-pulse shadow-clinic-gold/40'}
-              `}
-            >
-              {loading ? '分析中...' : '生成推薦方案'}
-              <ArrowRight size={28} />
-            </button>
-          </div>
+          <button
+            disabled={selectedCategoryIds.length === 0 || loading}
+            onClick={handleNext}
+            className="btn-gold text-2xl px-20 py-6 mt-20 disabled:opacity-30"
+          >
+            {loading ? '分析中...' : '生成推薦方案'} <ArrowRight size={28} />
+          </button>
         </div>
       ) : (
-        <div className="flex-1 max-w-6xl mx-auto w-full z-10 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {recommendations.length > 0 ? (
-              recommendations.map(treatment => (
-                <div key={treatment.id} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500">
-                  <div className="h-64 relative overflow-hidden">
-                    <img 
-                      src={treatment.image_url || `https://picsum.photos/seed/${treatment.id}/800/600`} 
-                      alt={treatment.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                  </div>
-                  <div className="p-8 flex flex-col flex-1">
-                    <div className="mb-2">
-                       <span className="text-[10px] px-2 py-1 bg-clinic-rose/10 text-clinic-rose rounded font-bold uppercase tracking-widest">{treatment.icon_name}</span>
-                    </div>
-                    <h4 className="text-3xl font-bold text-gray-800 mb-4">{treatment.title}</h4>
-                    <p className="text-gray-500 leading-relaxed mb-8 flex-1">{treatment.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 uppercase tracking-widest mb-1">投資美麗</span>
-                        <span className="text-3xl font-bold text-clinic-gold">NT$ {treatment.price.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full py-32 text-center glass-card">
-                <p className="text-2xl text-gray-400 font-light">目前查無完全符合的療程。</p>
+        <div className="flex-1 max-w-6xl mx-auto w-full z-10 grid grid-cols-1 md:grid-cols-2 gap-10">
+          {recommendations.length > 0 ? recommendations.map(t => (
+            <div key={t.id} className="glass-card overflow-hidden flex flex-col h-full group">
+              <div className="h-64 relative overflow-hidden bg-gray-100">
+                <img src={t.image_url || `https://picsum.photos/seed/${t.id}/800/600`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt={t.title} />
               </div>
-            )}
-          </div>
+              <div className="p-8 flex-1 flex flex-col">
+                <h4 className="text-3xl font-bold text-gray-800 mb-4">{t.title}</h4>
+                <p className="text-gray-500 mb-8 flex-1">{t.description}</p>
+                <div className="text-3xl font-bold text-clinic-gold">NT$ {t.price.toLocaleString()}</div>
+              </div>
+            </div>
+          )) : <div className="col-span-full py-32 text-center text-gray-400">目前查無符合療程。</div>}
         </div>
       )}
     </div>

@@ -4,34 +4,31 @@ import Link from 'next/link';
 import { Sparkles, ChevronRight, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-/**
- * 強制 Next.js 進入完全動態渲染模式 (Server Side Rendering)
- * 確保每次請求都從資料庫抓取最新資料，不使用快取。
- */
+// 強制動態渲染，確保獲取最新資料庫內容
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function HomePage() {
-  /**
-   * 1. 從 Supabase Server-side 直接讀取配置
-   * 鎖定 id 為 'clinic_main' 的診所設定資料
-   */
-  const { data: settings } = await supabase
-    .from('settings')
-    .select('logo_url, clinic_name, updated_at')
-    .eq('id', 'clinic_main')
-    .single();
+  // 1. 同時獲取診所設定、系統文字與分類資料
+  const [settingsRes, textsRes, categoriesRes] = await Promise.all([
+    supabase.from('settings').select('logo_url, clinic_name, updated_at').eq('id', 'clinic_main').single(),
+    supabase.from('system_texts').select('key, value'),
+    supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+  ]);
+
+  const settings = settingsRes.data;
+  const systemTexts = (textsRes.data || []).reduce((acc: any, curr) => {
+    acc[curr.key] = curr.value;
+    return acc;
+  }, {});
+  const categories = categoriesRes.data || [];
 
   const logoUrl = settings?.logo_url;
-  const clinicName = settings?.clinic_name || '亮立美學';
-  // 將更新時間轉為 timestamp 用於防止圖片快取
-  const version = settings?.updated_at 
-    ? new Date(settings.updated_at).getTime() 
-    : new Date().getTime();
+  const clinicName = systemTexts['home_title'] || settings?.clinic_name || '亮立美學';
+  const version = settings?.updated_at ? new Date(settings.updated_at).getTime() : Date.now();
 
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
-      {/* 裝飾性環境背景 */}
       <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-clinic-rose/20 blur-3xl animate-float"></div>
       <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
 
@@ -41,12 +38,7 @@ export default async function HomePage() {
             <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
               <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
                 {logoUrl ? (
-                  <img 
-                    // 根據需求使用 logo_url 並加上版本號 (?v=) 防止快取
-                    src={`${logoUrl}?v=${version}`} 
-                    alt={clinicName} 
-                    className="w-full h-full object-cover" 
-                  />
+                  <img src={`${logoUrl}?v=${version}`} alt={clinicName} className="w-full h-full object-cover" />
                 ) : (
                   <Sparkles size={64} className="text-clinic-gold" />
                 )}
@@ -62,22 +54,21 @@ export default async function HomePage() {
           </h1>
           <div className="flex items-center justify-center gap-4 text-clinic-gold tracking-widest uppercase text-sm font-medium opacity-60">
             <span className="h-[1px] w-8 bg-clinic-gold/30"></span>
-            Radiant Medical Aesthetic
+            {systemTexts['home_subtitle'] || 'Radiant Medical Aesthetic'}
             <span className="h-[1px] w-8 bg-clinic-gold/30"></span>
           </div>
         </div>
 
         <div className="glass-card p-10 w-full max-w-2xl flex flex-col items-center text-center space-y-8 border-white/60">
           <p className="text-gray-500 text-lg font-light leading-relaxed">
-            歡迎來到{clinicName}專業諮詢系統。<br />
-            請點擊下方按鈕開始您的客製化美麗分析。
+            {systemTexts['home_welcome_msg']}
           </p>
           
           <Link 
             href="/consultation"
             className="btn-gold text-2xl px-12 py-6 w-full max-w-md shadow-clinic-gold/20 flex items-center justify-center gap-4 group"
           >
-            開始專業諮詢
+            {systemTexts['home_start_btn']}
             <ChevronRight size={32} className="group-hover:translate-x-2 transition-transform" />
           </Link>
           
@@ -95,7 +86,7 @@ export default async function HomePage() {
       </div>
       
       <div className="absolute bottom-8 flex flex-col items-center gap-2 text-gray-400">
-        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Radiant Cloud System | iPad Pro Edition</p>
+        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Dynamic Asset Management | v2.0</p>
         <Link href="/admin/login" className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30">
           管理員安全存取
         </Link>
