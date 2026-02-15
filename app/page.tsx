@@ -1,66 +1,33 @@
-'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { Sparkles, ChevronRight, MapPin, Clock, Loader2 } from 'lucide-react';
+import { Sparkles, ChevronRight, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * 強制 Next.js 進入完全動態渲染模式
- * 確保 Vercel 不會快取 HTML 頁面
+ * 強制 Next.js 進入完全動態渲染模式 (Server Side Rendering)
+ * 確保每次請求都從資料庫抓取最新資料，不使用快取。
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function HomePage() {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [clinicName, setClinicName] = useState('亮立美學');
-  const [loading, setLoading] = useState(true);
+export default async function HomePage() {
+  /**
+   * 1. 從 Supabase Server-side 直接讀取配置
+   * 鎖定 id 為 'clinic_main' 的診所設定資料
+   */
+  const { data: settings } = await supabase
+    .from('settings')
+    .select('logo_url, clinic_name, updated_at')
+    .eq('id', 'clinic_main')
+    .single();
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      setLoading(true);
-      try {
-        /**
-         * 1. 欄位對齊：使用 logo_url 與 clinic_name
-         * 2. ID 過濾：鎖定 clinic_main
-         * 3. 無快取抓取：雖然 supabase-js 在客戶端不走 Next.js fetch cache，
-         *    但我們透過 page-level 的 force-dynamic 確保整體流程最新。
-         */
-        const { data, error } = await supabase
-          .from('settings')
-          .select('logo_url, clinic_name')
-          .eq('id', 'clinic_main')
-          .single();
-        
-        if (error) {
-          console.warn("[Client] 讀取配置失敗 (PGRST116 可能為未設定):", error.message);
-          
-          // 備援抓取：如果 clinic_main 不存在，抓取任何一筆
-          const { data: fallback } = await supabase
-            .from('settings')
-            .select('logo_url, clinic_name')
-            .limit(1)
-            .single();
-            
-          if (fallback) {
-            setLogoUrl(fallback.logo_url);
-            setClinicName(fallback.clinic_name || '亮立美學');
-          }
-        } else if (data) {
-          // 成功取得最新雲端設定
-          setLogoUrl(data.logo_url);
-          setClinicName(data.clinic_name || '亮立美學');
-        }
-      } catch (err) {
-        console.error("[Client] 嚴重連線錯誤:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSettings();
-  }, []);
+  const logoUrl = settings?.logo_url;
+  const clinicName = settings?.clinic_name || '亮立美學';
+  // 將更新時間轉為 timestamp 用於防止圖片快取
+  const version = settings?.updated_at 
+    ? new Date(settings.updated_at).getTime() 
+    : new Date().getTime();
 
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
@@ -73,12 +40,10 @@ export default function HomePage() {
           <div className="relative inline-block mb-8">
             <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
               <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
-                {loading ? (
-                  <Loader2 className="animate-spin text-clinic-gold/30" size={32} />
-                ) : logoUrl ? (
+                {logoUrl ? (
                   <img 
-                    // 核心修正：使用 logo_url 並加上 timestamp 徹底防止瀏覽器圖片快取
-                    src={`${logoUrl}?t=${new Date().getTime()}`} 
+                    // 根據需求使用 logo_url 並加上版本號 (?v=) 防止快取
+                    src={`${logoUrl}?v=${version}`} 
                     alt={clinicName} 
                     className="w-full h-full object-cover" 
                   />
