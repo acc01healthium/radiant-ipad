@@ -10,20 +10,22 @@ export enum CategoryType {
 
 export interface Treatment {
   id: string;
-  name: string;
+  title: string;
   price: number;
   description: string;
-  categories: CategoryType[];
-  imageUrl?: string;
+  icon_name: string;
+  sort_order: number;
+  image_url?: string;
+  updated_at?: string;
 }
 
 export interface AestheticCase {
   id: string;
   title: string;
-  treatmentName: string;
-  beforeImageUrl: string;
-  afterImageUrl: string;
-  createdAt: any;
+  description: string;
+  category: string;
+  image_url: string;
+  created_at: any;
 }
 
 export interface CarouselImage {
@@ -33,6 +35,6 @@ export interface CarouselImage {
 }
 
 export interface User {
-  uid: string;
+  id: string;
   email: string | null;
 }

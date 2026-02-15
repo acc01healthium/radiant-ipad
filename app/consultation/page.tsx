@@ -25,7 +25,6 @@ export default function ConsultationPage() {
     );
   };
 
-  // Fetch treatments from Supabase instead of the deprecated Firebase db to fix type mismatch
   const handleNext = async () => {
     if (selectedIssues.length === 0) return;
     
@@ -40,14 +39,18 @@ export default function ConsultationPage() {
       
       const allTreatments = (data || []) as Treatment[];
       
+      // 根據 icon_name 或標題進行關鍵字過濾 (根據您的 SQL 結構調整)
       const filtered = allTreatments.filter(t => 
-        t.categories && t.categories.some(cat => selectedIssues.includes(cat))
+        selectedIssues.some(issue => 
+          t.icon_name?.includes(issue) || t.title?.includes(issue)
+        )
       );
       
       setRecommendations(filtered);
       setStep(2);
     } catch (error: any) {
-      setError("資料載入失敗，請確認網路連線。");
+      console.error("Consultation fetch error:", error);
+      setError("資料載入失敗，請確認網路連線或資料表設定。");
     } finally {
       setLoading(false);
     }
@@ -55,7 +58,6 @@ export default function ConsultationPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream flex flex-col p-8 md:p-12 relative overflow-hidden bg-pattern">
-      {/* Decorative Circles */}
       <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-clinic-rose/10 blur-3xl"></div>
 
       <header className="flex items-center justify-between mb-16 z-10">
@@ -141,45 +143,32 @@ export default function ConsultationPage() {
                 <div key={treatment.id} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500">
                   <div className="h-64 relative overflow-hidden">
                     <img 
-                      src={treatment.imageUrl || `https://picsum.photos/seed/${treatment.id}/800/600`} 
-                      alt={treatment.name}
+                      src={treatment.image_url || `https://picsum.photos/seed/${treatment.id}/800/600`} 
+                      alt={treatment.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                    <div className="absolute bottom-6 left-6 flex gap-2">
-                      {treatment.categories && treatment.categories.map(cat => (
-                        <span key={cat} className="text-[10px] px-3 py-1 bg-white/20 backdrop-blur-md text-white rounded-full uppercase tracking-widest">{cat}</span>
-                      ))}
-                    </div>
                   </div>
                   <div className="p-8 flex flex-col flex-1">
-                    <h4 className="text-3xl font-bold text-gray-800 mb-4">{treatment.name}</h4>
+                    <div className="mb-2">
+                       <span className="text-[10px] px-2 py-1 bg-clinic-rose/10 text-clinic-rose rounded font-bold uppercase tracking-widest">{treatment.icon_name}</span>
+                    </div>
+                    <h4 className="text-3xl font-bold text-gray-800 mb-4">{treatment.title}</h4>
                     <p className="text-gray-500 leading-relaxed mb-8 flex-1">{treatment.description}</p>
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-400 uppercase tracking-widest mb-1">投資美麗</span>
                         <span className="text-3xl font-bold text-clinic-gold">NT$ {treatment.price.toLocaleString()}</span>
                       </div>
-                      <button className="btn-outline px-6 py-3">查看詳情</button>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
               <div className="col-span-full py-32 text-center glass-card">
-                <p className="text-2xl text-gray-400 font-light">目前查無完全符合的療程，<br />建議聯繫諮詢師為您客製化服務。</p>
+                <p className="text-2xl text-gray-400 font-light">目前查無完全符合的療程。</p>
               </div>
             )}
-          </div>
-          
-          <div className="mt-16 p-12 glass-card flex flex-col items-center gap-8 border-2 border-dashed border-clinic-gold/30">
-            <div className="text-center">
-              <h5 className="text-2xl font-medium text-clinic-dark mb-2">想了解更多細節？</h5>
-              <p className="text-gray-400">專屬顧問已準備好為您解說</p>
-            </div>
-            <button className="btn-gold px-16 text-xl">
-              呼叫現場諮詢師
-            </button>
           </div>
         </div>
       )}
