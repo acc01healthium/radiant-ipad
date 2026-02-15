@@ -1,1 +1,1 @@
-// 已遷移至 app/admin/settings/page.tsx
+// Deleted: Moved to app/admin/settings/page.tsx
