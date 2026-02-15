@@ -6,25 +6,46 @@ import Link from 'next/link';
 import { Sparkles, ChevronRight, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
+// 強制 Next.js 不快取此頁面，確保 iPad 每次重新整理都能抓到最新資料
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState('亮立美學');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
+        // 修正：對齊後台使用的 ID 'clinic_main'
         const { data, error } = await supabase
           .from('settings')
           .select('logo_url, clinic_name')
-          .eq('id', 'general')
+          .eq('id', 'clinic_main')
           .single();
         
-        if (data) {
+        if (error) {
+          console.error("Supabase settings error:", error);
+          // 如果找不到 clinic_main，嘗試抓取舊的 general 作為備援
+          const { data: backupData } = await supabase
+            .from('settings')
+            .select('logo_url, clinic_name')
+            .eq('id', 'general')
+            .single();
+          
+          if (backupData) {
+            setLogoUrl(backupData.logo_url);
+            setClinicName(backupData.clinic_name || '亮立美學');
+          }
+        } else if (data) {
           setLogoUrl(data.logo_url);
           setClinicName(data.clinic_name || '亮立美學');
         }
       } catch (err) {
         console.error("Failed to fetch settings from Supabase.", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSettings();
@@ -40,7 +61,9 @@ export default function HomePage() {
           <div className="relative inline-block mb-8">
             <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
               <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/10 flex items-center justify-center">
-                {logoUrl ? (
+                {loading ? (
+                  <div className="animate-pulse bg-gray-200 w-full h-full"></div>
+                ) : logoUrl ? (
                   <img src={logoUrl} alt={clinicName} className="w-full h-full object-cover" />
                 ) : (
                   <Sparkles size={64} className="text-clinic-gold" />

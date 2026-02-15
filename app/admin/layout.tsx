@@ -1,20 +1,39 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon } from 'lucide-react';
+import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon, Loader2 } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [clinicName, setClinicName] = useState('亮立美學');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClinicInfo = async () => {
+      const { data } = await supabase
+        .from('settings')
+        .select('clinic_name, logo_url')
+        .eq('id', 'clinic_main')
+        .single();
+      
+      if (data) {
+        setClinicName(data.clinic_name || '亮立美學');
+        setLogoUrl(data.logo_url);
+      }
+    };
+    if (pathname !== '/admin/login') {
+      fetchClinicInfo();
+    }
+  }, [pathname]);
 
   if (pathname === '/admin/login') return <>{children}</>;
 
-  // Use Supabase for sign out as the app has migrated from Firebase
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/');
@@ -32,9 +51,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex min-h-screen bg-gray-50">
         <aside className="w-72 bg-white border-r shadow-sm flex flex-col fixed h-full z-20">
           <div className="p-8 border-b flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl rose-gold-gradient flex items-center justify-center text-white font-bold shadow-md">R</div>
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md bg-gray-50 border border-gray-100 flex items-center justify-center">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <div className="rose-gold-gradient w-full h-full flex items-center justify-center text-white font-bold">R</div>
+              )}
+            </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800 leading-none">亮立美學</h1>
+              <h1 className="text-lg font-bold text-gray-800 leading-none truncate max-w-[150px]">{clinicName}</h1>
               <span className="text-[10px] uppercase tracking-widest text-gray-400">Admin Panel</span>
             </div>
           </div>
