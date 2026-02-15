@@ -16,7 +16,8 @@
     "@supabase/supabase-js": "^2.45.4",
     "lucide-react": "^0.475.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.3.0"
+    "tailwind-merge": "^2.3.0",
+    "react-easy-crop": "^5.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

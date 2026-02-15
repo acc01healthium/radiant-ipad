@@ -76,8 +76,12 @@ export default function ConsultationPage() {
     if (cat.icon_image_path) {
       const imageUrl = `${supabase.storage.from('icons').getPublicUrl(cat.icon_image_path).data.publicUrl}?v=${Date.parse(cat.icon_image_updated_at || cat.updated_at)}`;
       return (
-        <div className="w-24 h-24 mb-2 flex items-center justify-center p-2">
-          <img src={imageUrl} alt={cat.name} className={`w-full h-full object-contain transition-all duration-500 ${isSelected ? 'brightness-0 invert' : ''}`} />
+        <div className="w-16 h-16 md:w-20 md:h-20 mb-2 flex items-center justify-center overflow-hidden rounded-2xl bg-gray-50/50">
+          <img 
+            src={imageUrl} 
+            alt={cat.name} 
+            className={`w-full h-full object-cover transition-all duration-500 ${isSelected ? 'brightness-0 invert scale-110' : 'group-hover:scale-110'}`} 
+          />
         </div>
       );
     }
@@ -119,7 +123,7 @@ export default function ConsultationPage() {
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
                   style={{ animationDelay: `${idx * 0.1}s` }}
-                  className={`aspect-square rounded-[3rem] flex flex-col items-center justify-center gap-4 transition-all duration-500 transform active:scale-90 relative animate-fade-in shadow-sm ${isSelected ? 'bg-clinic-rose text-white shadow-2xl scale-110 border-8 border-white' : 'bg-white text-gray-600 hover:shadow-xl border border-gray-100'}`}
+                  className={`group aspect-square rounded-[3rem] flex flex-col items-center justify-center gap-4 transition-all duration-500 transform active:scale-90 relative animate-fade-in shadow-sm ${isSelected ? 'bg-clinic-rose text-white shadow-2xl scale-110 border-8 border-white' : 'bg-white text-gray-600 hover:shadow-xl border border-gray-100'}`}
                 >
                   {renderCategoryIcon(cat, isSelected)}
                   <span className="text-2xl font-black tracking-widest">{cat.name}</span>
