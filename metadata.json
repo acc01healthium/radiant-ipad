@@ -1,0 +1,7 @@
+{
+  "name": "亮立美學 iPad 諮詢系統",
+  "description": "專為 iPad 設計的醫美諮詢系統，包含療程篩選、術前術後管理與後台管理介面。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
