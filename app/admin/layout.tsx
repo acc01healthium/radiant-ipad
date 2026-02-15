@@ -6,14 +6,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Package, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { Package, LayoutDashboard, LogOut, Settings, Image as ImageIcon } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Skip layout for login page
   if (pathname === '/admin/login') return <>{children}</>;
 
   const handleLogout = async () => {
@@ -24,39 +23,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isActive = (path: string) => pathname === path;
 
   const navItemClass = (path: string) => `
-    flex items-center gap-3 p-3 rounded-lg transition-colors
+    flex items-center gap-3 p-3 rounded-xl transition-all duration-200
     ${isActive(path) ? 'bg-[#F8E8FF] gold-text font-bold shadow-sm' : 'hover:bg-gray-50 text-gray-600'}
   `;
 
   return (
     <ProtectedRoute>
       <div className="flex min-h-screen bg-gray-50">
-        <aside className="w-64 bg-white border-r shadow-sm flex flex-col fixed h-full">
-          <div className="p-6 border-b flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-[#E0B0FF] flex items-center justify-center text-white font-bold">R</div>
-            <h1 className="text-xl font-bold gold-text">亮立美學後台</h1>
+        <aside className="w-72 bg-white border-r shadow-sm flex flex-col fixed h-full z-20">
+          <div className="p-8 border-b flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl rose-gold-gradient flex items-center justify-center text-white font-bold shadow-md">R</div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800 leading-none">亮立美學</h1>
+              <span className="text-[10px] uppercase tracking-widest text-gray-400">Admin Panel</span>
+            </div>
           </div>
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-5 space-y-2">
             <Link href="/admin" className={navItemClass('/admin')}>
               <LayoutDashboard size={20} /> 控制面板
             </Link>
             <Link href="/admin/treatments" className={navItemClass('/admin/treatments')}>
-              <Package size={20} /> 療程管理
+              <Package size={20} /> 療程項目
+            </Link>
+            <Link href="/admin/cases" className={navItemClass('/admin/cases')}>
+              <ImageIcon size={20} /> 術前後案例
             </Link>
             <Link href="/admin/settings" className={navItemClass('/admin/settings')}>
               <Settings size={20} /> 系統設定
             </Link>
           </nav>
-          <div className="p-4 border-t">
+          <div className="p-6 border-t">
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-3 p-3 w-full text-left rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+              className="flex items-center gap-3 p-3 w-full text-left rounded-xl text-red-500 hover:bg-red-50 transition-colors font-medium"
             >
               <LogOut size={20} /> 登出系統
             </button>
           </div>
         </aside>
-        <main className="flex-1 p-8 ml-64 min-h-screen">
+        <main className="flex-1 p-10 ml-72 min-h-screen">
           {children}
         </main>
       </div>

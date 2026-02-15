@@ -17,6 +17,15 @@ export interface Treatment {
   imageUrl?: string;
 }
 
+export interface AestheticCase {
+  id: string;
+  title: string;
+  treatmentName: string;
+  beforeImageUrl: string;
+  afterImageUrl: string;
+  createdAt: any;
+}
+
 export interface CarouselImage {
   id: string;
   url: string;
