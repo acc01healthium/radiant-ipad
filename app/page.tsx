@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -7,9 +6,8 @@ import { Sparkles, ChevronRight, MapPin, Clock, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * 徹底解決快取問題：
- * 1. force-dynamic: 停用靜態生成，每次請求都重新運行
- * 2. revalidate = 0: 確保 Edge Network 不會儲存舊頁面
+ * 強制 Next.js 進入完全動態渲染模式
+ * 確保 Vercel 不會快取 HTML 頁面
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,9 +22,10 @@ export default function HomePage() {
       setLoading(true);
       try {
         /**
-         * 從 settings 表抓取品牌視覺
-         * 欄位：logo_url, clinic_name
-         * ID：clinic_main
+         * 1. 欄位對齊：使用 logo_url 與 clinic_name
+         * 2. ID 過濾：鎖定 clinic_main
+         * 3. 無快取抓取：雖然 supabase-js 在客戶端不走 Next.js fetch cache，
+         *    但我們透過 page-level 的 force-dynamic 確保整體流程最新。
          */
         const { data, error } = await supabase
           .from('settings')
@@ -35,12 +34,12 @@ export default function HomePage() {
           .single();
         
         if (error) {
-          console.warn("[Page] 讀取配置失敗，可能尚未設定 clinic_main:", error.message);
+          console.warn("[Client] 讀取配置失敗 (PGRST116 可能為未設定):", error.message);
           
-          // 備援：嘗試讀取隨意一筆資料
+          // 備援抓取：如果 clinic_main 不存在，抓取任何一筆
           const { data: fallback } = await supabase
             .from('settings')
-            .select('*')
+            .select('logo_url, clinic_name')
             .limit(1)
             .single();
             
@@ -49,11 +48,12 @@ export default function HomePage() {
             setClinicName(fallback.clinic_name || '亮立美學');
           }
         } else if (data) {
+          // 成功取得最新雲端設定
           setLogoUrl(data.logo_url);
           setClinicName(data.clinic_name || '亮立美學');
         }
       } catch (err) {
-        console.error("[Page] 嚴重連線錯誤:", err);
+        console.error("[Client] 嚴重連線錯誤:", err);
       } finally {
         setLoading(false);
       }
@@ -64,7 +64,7 @@ export default function HomePage() {
 
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
-      {/* 裝飾背景 */}
+      {/* 裝飾性環境背景 */}
       <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-clinic-rose/20 blur-3xl animate-float"></div>
       <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
 
@@ -77,7 +77,8 @@ export default function HomePage() {
                   <Loader2 className="animate-spin text-clinic-gold/30" size={32} />
                 ) : logoUrl ? (
                   <img 
-                    src={`${logoUrl}?t=${new Date().getTime()}`} // 附加時間戳避免瀏覽器快取圖片
+                    // 核心修正：使用 logo_url 並加上 timestamp 徹底防止瀏覽器圖片快取
+                    src={`${logoUrl}?t=${new Date().getTime()}`} 
                     alt={clinicName} 
                     className="w-full h-full object-cover" 
                   />
@@ -91,7 +92,7 @@ export default function HomePage() {
             </div>
           </div>
           
-          <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all">
+          <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all uppercase">
             {clinicName}
           </h1>
           <div className="flex items-center justify-center gap-4 text-clinic-gold tracking-widest uppercase text-sm font-medium opacity-60">
@@ -129,7 +130,7 @@ export default function HomePage() {
       </div>
       
       <div className="absolute bottom-8 flex flex-col items-center gap-2 text-gray-400">
-        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Radiant Cloud System</p>
+        <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Radiant Cloud System | iPad Pro Edition</p>
         <Link href="/admin/login" className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30">
           管理員安全存取
         </Link>
