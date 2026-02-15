@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -27,7 +26,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with offline persistence
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
@@ -37,7 +35,6 @@ export const db = initializeFirestore(app, {
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-// Settings Helpers
 export const getGeneralSettings = async () => {
   try {
     const docRef = doc(db, 'settings', 'general');
@@ -56,7 +53,6 @@ export const updateGeneralSettings = async (data: any) => {
   await setDoc(docRef, data, { merge: true });
 };
 
-// Seed Data Function
 export const seedInitialData = async () => {
   const settingsRef = doc(db, 'settings', 'general');
   const settingsSnap = await getDoc(settingsRef);
