@@ -3,40 +3,32 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --rose-gold: #E0B0FF;
-  --gold: #D4AF37;
-  --bg-cream: #FDFBF7;
+@layer base {
+  body {
+    @apply bg-clinic-cream text-clinic-dark antialiased;
+    font-family: 'Noto Sans TC', sans-serif;
+  }
 }
 
-body {
-  background-color: var(--bg-cream);
-  color: #1f2937;
-  font-family: 'Noto Sans TC', sans-serif;
-  -webkit-tap-highlight-color: transparent;
+@layer components {
+  .btn-gold {
+    @apply px-8 py-4 bg-clinic-gold text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] active:scale-95 font-medium flex items-center justify-center gap-2;
+  }
+  
+  .btn-outline {
+    @apply px-8 py-4 border-2 border-clinic-gold text-clinic-gold rounded-full transition-all duration-300 hover:bg-clinic-gold hover:text-white active:scale-95 font-medium flex items-center justify-center gap-2;
+  }
+
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-3xl;
+  }
+
+  .input-field {
+    @apply w-full px-5 py-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-clinic-rose focus:border-transparent outline-none transition-all;
+  }
 }
 
-.rose-gold-gradient {
-  background: linear-gradient(135deg, #E0B0FF 0%, #F8E8FF 100%);
-}
-
-.gold-text {
-  color: var(--gold);
-}
-
-.gold-border {
-  border-color: var(--gold);
-}
-
-.gold-bg {
-  background-color: var(--gold);
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
+.bg-pattern {
+  background-image: radial-gradient(#E0B0FF 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
 }

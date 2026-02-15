@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CategoryType, Treatment } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { ChevronLeft, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Check, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function ConsultationPage() {
   const router = useRouter();
@@ -43,43 +43,51 @@ export default function ConsultationPage() {
       setRecommendations(filtered);
       setStep(2);
     } catch (error: any) {
-      setError("連線失敗。請確認網路狀態。");
+      setError("資料載入失敗，請確認網路連線。");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex flex-col p-8">
-      <header className="flex items-center justify-between mb-12">
+    <div className="min-h-screen bg-clinic-cream flex flex-col p-8 md:p-12 relative overflow-hidden bg-pattern">
+      {/* Decorative Circles */}
+      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-clinic-rose/10 blur-3xl"></div>
+
+      <header className="flex items-center justify-between mb-16 z-10">
         <button 
           onClick={() => step === 1 ? router.push('/') : setStep(1)}
-          className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors p-2"
+          className="p-4 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all active:scale-95"
         >
-          <ChevronLeft size={28} />
-          <span className="text-lg">返回</span>
+          <ChevronLeft size={32} />
         </button>
-        <h2 className="text-2xl font-medium gold-text">
-          {step === 1 ? '您的肌膚困擾' : '為您推薦的療程'}
-        </h2>
-        <div className="w-20"></div>
+        <div className="text-center">
+          <h2 className="text-3xl font-light text-clinic-dark tracking-widest">
+            {step === 1 ? '您的肌膚困擾' : '專業推薦方案'}
+          </h2>
+          <div className="flex justify-center mt-2 gap-1">
+            <div className={`h-1.5 w-12 rounded-full transition-all ${step === 1 ? 'bg-clinic-gold' : 'bg-gray-200'}`}></div>
+            <div className={`h-1.5 w-12 rounded-full transition-all ${step === 2 ? 'bg-clinic-gold' : 'bg-gray-200'}`}></div>
+          </div>
+        </div>
+        <div className="w-16"></div>
       </header>
 
       {error && (
-        <div className="max-w-md mx-auto mb-8 flex items-center gap-3 p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 shadow-sm">
-          <AlertCircle size={20} />
+        <div className="max-w-md mx-auto mb-8 flex items-center gap-3 p-5 bg-red-50 text-red-700 rounded-3xl border border-red-100 shadow-sm animate-fade-in">
+          <AlertCircle size={24} />
           {error}
         </div>
       )}
 
       {step === 1 ? (
-        <div className="flex-1 flex flex-col">
-          <div className="mb-12 text-center">
-            <h3 className="text-3xl font-light text-gray-700 mb-4">請選出您感興趣的改善項目</h3>
-            <p className="text-gray-400">可多選，我們將根據您的選擇提供專業建議</p>
+        <div className="flex-1 flex flex-col items-center max-w-5xl mx-auto w-full z-10 animate-fade-in">
+          <div className="mb-16 text-center">
+            <h3 className="text-4xl font-light text-gray-700 mb-6">請選擇欲改善的項目</h3>
+            <p className="text-gray-400 text-lg">讓我們為您量身打造專屬療程計劃</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8 max-w-4xl mx-auto w-full">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-10 w-full">
             {categories.map((cat) => {
               const isSelected = selectedIssues.includes(cat);
               return (
@@ -87,80 +95,86 @@ export default function ConsultationPage() {
                   key={cat}
                   onClick={() => toggleIssue(cat)}
                   className={`
-                    aspect-square rounded-full flex flex-col items-center justify-center gap-3 transition-all transform active:scale-95 shadow-sm
+                    aspect-square rounded-full flex flex-col items-center justify-center gap-4 transition-all duration-500 transform active:scale-90 relative
                     ${isSelected 
-                      ? 'rose-gold-gradient text-white shadow-xl scale-105 border-4 border-white ring-4 ring-[#E0B0FF]/20' 
-                      : 'bg-white text-gray-600 hover:shadow-md border-2 border-[#F8E8FF]'}
+                      ? 'bg-clinic-rose text-white shadow-[0_20px_40px_rgba(224,176,255,0.4)] scale-110 border-4 border-white' 
+                      : 'bg-white text-gray-600 hover:shadow-xl hover:-translate-y-2 border border-gray-100'}
                   `}
                 >
-                  <div className={`p-4 rounded-full ${isSelected ? 'bg-white/20' : 'bg-[#FDFBF7]'}`}>
-                    <Sparkles size={isSelected ? 32 : 28} className={isSelected ? 'text-white' : 'gold-text'} />
+                  <div className={`p-5 rounded-full ${isSelected ? 'bg-white/20' : 'bg-clinic-cream'}`}>
+                    <Sparkles size={isSelected ? 40 : 32} className={isSelected ? 'text-white' : 'text-clinic-gold'} />
                   </div>
-                  <span className="text-xl font-medium tracking-wide">{cat}</span>
-                  {isSelected && <Check size={20} className="mt-1" />}
+                  <span className="text-2xl font-medium">{cat}</span>
+                  {isSelected && (
+                    <div className="absolute -top-2 -right-2 bg-clinic-gold p-2 rounded-full shadow-lg animate-fade-in">
+                      <Check size={20} className="text-white" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-auto pt-12 flex justify-center">
+          <div className="mt-20">
             <button
               disabled={selectedIssues.length === 0 || loading}
               onClick={handleNext}
               className={`
-                px-16 py-5 rounded-full text-xl font-medium transition-all shadow-lg
-                ${selectedIssues.length > 0 
-                  ? 'gold-bg text-white hover:opacity-90 transform hover:-translate-y-1' 
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+                btn-gold text-2xl px-20 py-6
+                ${selectedIssues.length === 0 ? 'opacity-30 cursor-not-allowed scale-100' : 'animate-pulse shadow-clinic-gold/40'}
               `}
             >
-              {loading ? '尋找方案中...' : '查看推薦療程'}
+              {loading ? '分析中...' : '生成推薦方案'}
+              <ArrowRight size={28} />
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex-1 max-w-6xl mx-auto w-full animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="flex-1 max-w-6xl mx-auto w-full z-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {recommendations.length > 0 ? (
               recommendations.map(treatment => (
-                <div key={treatment.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-[#F8E8FF] flex flex-col md:flex-row h-full">
-                  <div className="w-full md:w-48 h-48 md:h-full relative shrink-0">
+                <div key={treatment.id} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500">
+                  <div className="h-64 relative overflow-hidden">
                     <img 
-                      src={treatment.imageUrl || 'https://picsum.photos/400/300'} 
+                      src={treatment.imageUrl || `https://picsum.photos/seed/${treatment.id}/800/600`} 
                       alt={treatment.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
-                  </div>
-                  <div className="p-6 flex flex-col justify-between">
-                    <div>
-                      <div className="flex gap-2 mb-3">
-                        {treatment.categories.map(cat => (
-                          <span key={cat} className="text-xs px-3 py-1 bg-[#F8E8FF] gold-text rounded-full">{cat}</span>
-                        ))}
-                      </div>
-                      <h4 className="text-2xl font-bold text-gray-800 mb-2">{treatment.name}</h4>
-                      <p className="text-gray-500 line-clamp-3 leading-relaxed mb-4">{treatment.description}</p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                    <div className="absolute bottom-6 left-6 flex gap-2">
+                      {treatment.categories.map(cat => (
+                        <span key={cat} className="text-[10px] px-3 py-1 bg-white/20 backdrop-blur-md text-white rounded-full uppercase tracking-widest">{cat}</span>
+                      ))}
                     </div>
-                    <div className="flex items-center justify-between mt-auto">
-                      <span className="text-2xl font-bold gold-text">NT$ {treatment.price.toLocaleString()} <span className="text-sm font-normal text-gray-400">起</span></span>
-                      <button className="px-6 py-2 border-2 gold-border gold-text rounded-full hover:gold-bg hover:text-white transition-all">
-                        詳細介紹
-                      </button>
+                  </div>
+                  <div className="p-8 flex flex-col flex-1">
+                    <h4 className="text-3xl font-bold text-gray-800 mb-4">{treatment.name}</h4>
+                    <p className="text-gray-500 leading-relaxed mb-8 flex-1">{treatment.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400 uppercase tracking-widest mb-1">投資美麗</span>
+                        <span className="text-3xl font-bold text-clinic-gold">NT$ {treatment.price.toLocaleString()}</span>
+                      </div>
+                      <button className="btn-outline px-6 py-3">查看詳情</button>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="col-span-full py-20 text-center">
-                <p className="text-xl text-gray-400">目前沒有完全符合的療程，請聯繫諮詢師提供客製化建議。</p>
+              <div className="col-span-full py-32 text-center glass-card">
+                <p className="text-2xl text-gray-400 font-light">目前查無完全符合的療程，<br />建議聯繫諮詢師為您客製化服務。</p>
               </div>
             )}
           </div>
           
-          <div className="mt-12 p-8 bg-white rounded-3xl border-2 border-dashed gold-border flex flex-col items-center gap-6">
-            <p className="text-xl font-medium text-gray-700">準備好開始您的美麗旅程了嗎？</p>
-            <button className="px-12 py-4 gold-bg text-white rounded-full text-lg shadow-lg hover:shadow-xl transition-all">
-              呼叫專業諮詢師
+          <div className="mt-16 p-12 glass-card flex flex-col items-center gap-8 border-2 border-dashed border-clinic-gold/30">
+            <div className="text-center">
+              <h5 className="text-2xl font-medium text-clinic-dark mb-2">想了解更多細節？</h5>
+              <p className="text-gray-400">專屬顧問已準備好為您解說</p>
+            </div>
+            <button className="btn-gold px-16 text-xl">
+              呼叫現場諮詢師
             </button>
           </div>
         </div>
