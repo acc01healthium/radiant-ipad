@@ -162,7 +162,7 @@ export default function TreatmentListPage() {
   };
 
   return (
-    <div className="space-y-10 animate-fade-in">
+    <div className="space-y-10">
       <div className="flex justify-between items-end border-b pb-8">
         <div>
           <h2 className="text-4xl font-black text-gray-800 tracking-tight">療程項目與見證管理</h2>
@@ -217,14 +217,13 @@ export default function TreatmentListPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-6 overflow-hidden">
-          {/* 修復點：調整 Modal 寬度比例，確保在大螢幕與 iPad 上都能看清。使用 flex-col 隔離 header/footer 與 body */}
-          <div className="bg-white w-[min(1100px,calc(100vw-48px))] rounded-[2.5rem] shadow-2xl animate-fade-in flex flex-col max-h-[calc(100dvh-48px)]">
+          {/* 修改視窗尺寸：w-[min(1100px,calc(100vw-48px))] + max-h-[calc(100dvh-48px)] */}
+          <div className="bg-white w-[min(1100px,calc(100vw-48px))] max-w-none rounded-[2.5rem] shadow-2xl animate-fade-in flex flex-col max-h-[calc(100dvh-48px)] overflow-hidden">
             <div className="p-8 border-b flex justify-between items-center bg-clinic-cream sticky top-0 z-10 shrink-0">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">{editingId ? '編輯療程內容' : '建立新療程'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={32} className="text-gray-400" /></button>
             </div>
             
-            {/* 修復點：核心內容區域獨立捲動 */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-12 scrollbar-thin">
                <section className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                   <div className="space-y-6">
