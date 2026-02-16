@@ -1,202 +1,194 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
-import { Plus, Trash2, ImageIcon, X, Loader2, Sparkles, Camera, Tag } from 'lucide-react';
+// Added Save to the lucide-react import list to fix the "Cannot find name 'Save'" error.
+import { Plus, Trash2, Edit3, X, Loader2, ImageIcon, CheckCircle2, Tag, Database, Save } from 'lucide-react';
 
-export default function AestheticCasesPage() {
+export default function CasesAdminPage() {
   const [cases, setCases] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [treatments, setTreatments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [sortOrder, setSortOrder] = useState(0);
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchCases();
+    fetchData();
   }, []);
 
-  const fetchCases = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setCases(data || []);
-    } catch (e: any) {
-      alert('載入失敗: ' + e.message);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = async () => {
+    const [casesRes, catsRes, treatRes] = await Promise.all([
+      supabase.from('cases').select('*, case_categories(category_id), case_treatments(treatment_id)').order('sort_order', { ascending: true }),
+      supabase.from('improvement_categories').select('*').eq('is_active', true),
+      supabase.from('treatments').select('*').eq('is_active', true)
+    ]);
+    setCases(casesRes.data || []);
+    setCategories(catsRes.data || []);
+    setTreatments(treatRes.data || []);
+    setLoading(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const openModal = (c?: any) => {
+    if (c) {
+      setEditingId(c.id);
+      setTitle(c.title);
+      setDescription(c.description);
+      setImageUrl(c.image_url);
+      setSortOrder(c.sort_order);
+      setSelectedCats(c.case_categories.map((x: any) => x.category_id));
+      setSelectedTreatments(c.case_treatments.map((x: any) => x.treatment_id));
+    } else {
+      setEditingId(null);
+      setTitle('');
+      setDescription('');
+      setImageUrl('');
+      setSortOrder(cases.length + 1);
+      setSelectedCats([]);
+      setSelectedTreatments([]);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageFile && !preview) {
-      alert('請務必選擇案例照片！');
-      return;
-    }
-
     setSaving(true);
-    try {
-      let finalImageUrl = preview || '';
-
-      if (imageFile) {
-        finalImageUrl = await uploadImageToCloudinary(imageFile);
-      }
-
-      const payload = {
-        title,
-        description,
-        category,
-        image_url: finalImageUrl,
-        created_at: new Date().toISOString()
-      };
-
-      const { error } = await supabase.from('cases').insert([payload]);
-
-      if (error) throw error;
-      
-      closeModal();
-      await fetchCases();
-      alert('案例發布成功！');
-    } catch (error: any) {
-      console.error("Save Error:", error);
-      alert(`發布失敗: ${error.message}`);
-    } finally {
-      setSaving(false); // 確保不論成功失敗都會執行
+    const payload = { title, description, image_url: imageUrl, sort_order: sortOrder };
+    
+    let resId = editingId;
+    if (editingId) {
+      await supabase.from('cases').update(payload).eq('id', editingId);
+    } else {
+      const { data } = await supabase.from('cases').insert([payload]).select().single();
+      resId = data.id;
     }
-  };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('永久刪除此見證案例？此操作不可撤銷。')) return;
-    try {
-      const { error } = await supabase.from('cases').delete().eq('id', id);
-      if (error) throw error;
-      fetchCases();
-    } catch (e: any) {
-      alert('刪除失敗: ' + e.message);
+    if (resId) {
+      // Sync relations
+      await Promise.all([
+        supabase.from('case_categories').delete().eq('case_id', resId),
+        supabase.from('case_treatments').delete().eq('case_id', resId)
+      ]);
+      await Promise.all([
+        selectedCats.length > 0 && supabase.from('case_categories').insert(selectedCats.map(cid => ({ case_id: resId, category_id: cid }))),
+        selectedTreatments.length > 0 && supabase.from('case_treatments').insert(selectedTreatments.map(tid => ({ case_id: resId, treatment_id: tid })))
+      ]);
     }
-  };
 
-  const closeModal = () => {
     setIsModalOpen(false);
-    setTitle('');
-    setDescription('');
-    setCategory('');
-    setImageFile(null);
-    setPreview(null);
+    fetchData();
     setSaving(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setPreview(URL.createObjectURL(file));
+  const handleDelete = async (id: string) => {
+    if (confirm('確定刪除此案例？')) {
+      await supabase.from('cases').delete().eq('id', id);
+      fetchData();
     }
   };
 
+  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin text-clinic-gold inline" /></div>;
+
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="space-y-10">
       <div className="flex justify-between items-end border-b pb-8">
-        <div>
-          <h2 className="text-4xl font-black text-gray-800 tracking-tight">亮立美學 - 術前後見證</h2>
-          <p className="text-gray-500 mt-2 font-medium">使用 Supabase 儲存的高品質視覺案例</p>
-        </div>
-        <button onClick={() => setIsModalOpen(true)} className="btn-gold px-12 py-5 text-lg shadow-clinic-gold/30">
-          <Plus size={24} /> 新增美麗見證
-        </button>
+        <h2 className="text-4xl font-black text-gray-800 tracking-tight">術前後見證管理</h2>
+        <button onClick={() => openModal()} className="btn-gold px-8 py-4 shadow-clinic-gold/30"><Plus /> 新增美麗見證</button>
       </div>
 
-      {loading ? (
-        <div className="p-40 flex flex-col items-center gap-4"><Loader2 className="animate-spin text-clinic-gold" size={64} /><p className="text-gray-400 font-bold tracking-widest uppercase">案例庫同步中</p></div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
-          {cases.map(c => (
-            <div key={c.id} className="glass-card overflow-hidden group hover:shadow-2xl transition-all relative border border-gray-100">
-              <div className="h-72 relative overflow-hidden bg-gray-50">
-                <img src={c.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={c.title} />
-                <div className="absolute top-4 left-4 bg-clinic-gold text-white text-[10px] font-black px-3 py-1 rounded-lg shadow-lg uppercase tracking-widest">{c.category || '案例'}</div>
-              </div>
-              <div className="p-8">
-                 <h4 className="text-2xl font-black text-gray-800 leading-tight group-hover:text-clinic-gold transition-colors">{c.title}</h4>
-                 <p className="text-gray-400 mt-2 line-clamp-2 text-sm italic">{c.description || '暫無說明'}</p>
-                 <button onClick={() => handleDelete(c.id)} className="absolute bottom-8 right-8 text-gray-200 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={24} /></button>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {cases.map(c => (
+          <div key={c.id} className="bg-white p-6 rounded-3xl border shadow-sm group">
+            <div className="aspect-video rounded-2xl overflow-hidden mb-4 bg-gray-50 flex items-center justify-center">
+              <img src={c.image_url} className="max-w-full max-h-full object-contain" />
             </div>
-          ))}
-          {cases.length === 0 && (
-            <div className="col-span-full py-48 flex flex-col items-center justify-center glass-card border-dashed border-4 border-gray-100 bg-transparent">
-              <Camera size={80} className="text-gray-100 mb-6" />
-              <p className="text-gray-400 font-bold text-2xl tracking-widest">目前尚無美麗見證</p>
+            <h4 className="text-xl font-bold mb-2">{c.title}</h4>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {c.case_categories.map((rel: any) => (
+                <span key={rel.category_id} className="text-[10px] bg-amber-50 text-amber-600 px-2 py-1 rounded-lg">
+                  {categories.find(x => x.id === rel.category_id)?.name}
+                </span>
+              ))}
             </div>
-          )}
-        </div>
-      )}
+            <div className="flex justify-end gap-2 pt-4 border-t opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => openModal(c)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-clinic-gold"><Edit3 size={18} /></button>
+              <button onClick={() => handleDelete(c.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500"><Trash2 size={18} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-6 overflow-y-auto">
-          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden my-auto animate-fade-in">
-             <div className="p-10 border-b flex justify-between items-center bg-clinic-cream">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-clinic-gold rounded-2xl flex items-center justify-center text-white"><Camera size={28} /></div>
-                  <h3 className="text-3xl font-black text-gray-800 tracking-tight">建立美麗對比案例</h3>
-                </div>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={32} /></button>
-             </div>
-             <form onSubmit={handleSubmit} className="p-12 space-y-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-2">
-                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">案例標題 (title)</label>
-                     <input required value={title} onChange={e => setTitle(e.target.value)} className="input-field py-5 text-xl" placeholder="例：皮秒雷射三次效果" />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">所屬類別 (category)</label>
-                     <div className="relative">
-                       <Tag className="absolute left-5 top-1/2 -translate-y-1/2 text-clinic-gold" size={24} />
-                       <input required value={category} onChange={e => setCategory(e.target.value)} className="input-field py-5 pl-14 text-xl" placeholder="例：斑點治療" />
-                     </div>
-                   </div>
-                </div>
-
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] p-10">
+            <div className="flex justify-between items-center mb-10">
+              <h3 className="text-3xl font-black">{editingId ? '編輯見證' : '建立見證'}</h3>
+              <button onClick={() => setIsModalOpen(false)}><X size={32} /></button>
+            </div>
+            <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">效果說明 (description)</label>
-                  <textarea value={description} onChange={e => setDescription(e.target.value)} className="input-field h-32 py-5 resize-none" placeholder="描述治療過程與改善狀況..." />
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">標題</label>
+                  <input required value={title} onChange={e => setTitle(e.target.value)} className="input-field" />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">照片 URL (建議組合圖)</label>
+                  <input required value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="input-field" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">介紹說明</label>
+                  <textarea value={description} onChange={e => setDescription(e.target.value)} className="input-field h-40 resize-none" />
+                </div>
+              </div>
 
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">對比照片 (image_url)</label>
-                  <div className="aspect-video bg-gray-50 border-4 border-dashed rounded-[2.5rem] flex flex-col items-center justify-center relative overflow-hidden group hover:border-clinic-gold/30 transition-all">
-                    {preview ? (
-                      <img src={preview} className="w-full h-full object-cover" alt="Preview" />
-                    ) : (
-                      <div className="text-center space-y-3">
-                        <ImageIcon size={64} className="mx-auto text-gray-200" />
-                        <span className="text-gray-400 font-bold block">點擊選擇術前術後拼圖</span>
-                      </div>
-                    )}
-                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleFileChange} />
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">關聯欲改善項目 (多選)</label>
+                  <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-2xl border">
+                    {categories.map(cat => (
+                      <button
+                        type="button"
+                        key={cat.id}
+                        onClick={() => setSelectedCats(prev => prev.includes(cat.id) ? prev.filter(x => x !== cat.id) : [...prev, cat.id])}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${selectedCats.includes(cat.id) ? 'bg-clinic-gold text-white border-clinic-gold' : 'bg-white text-gray-400 border-gray-200'}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <button type="submit" disabled={saving} className="btn-gold w-full py-8 text-2xl font-black disabled:opacity-50">
-                  {saving ? (
-                    <div className="flex items-center gap-4"><Loader2 className="animate-spin" size={32} /><span>同步同步雲端數據中</span></div>
-                  ) : (
-                    <div className="flex items-center gap-4"><Sparkles size={32} /><span>發布美麗對比見證</span></div>
-                  )}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">關聯療程 (多選)</label>
+                  <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-2xl border">
+                    {treatments.map(t => (
+                      <button
+                        type="button"
+                        key={t.id}
+                        onClick={() => setSelectedTreatments(prev => prev.includes(t.id) ? prev.filter(x => x !== t.id) : [...prev, t.id])}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${selectedTreatments.includes(t.id) ? 'bg-clinic-gold text-white border-clinic-gold' : 'bg-white text-gray-400 border-gray-200'}`}
+                      >
+                        {t.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" disabled={saving} className="btn-gold w-full py-6 text-xl">
+                  {saving ? <Loader2 className="animate-spin" /> : <Save />} 儲存案例資料
                 </button>
-             </form>
+              </div>
+            </form>
           </div>
         </div>
       )}
