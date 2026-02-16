@@ -19,6 +19,16 @@ export interface ImprovementCategory {
   is_active: boolean;
 }
 
+export interface TreatmentCase {
+  id: string;
+  treatment_id: string;
+  title: string;
+  description: string;
+  before_image_url: string;
+  after_image_url: string;
+  sort_order: number;
+}
+
 export interface Treatment {
   id: string;
   title: string;
@@ -28,17 +38,6 @@ export interface Treatment {
   sort_order: number;
   is_active: boolean;
   treatment_price_options?: TreatmentPriceOption[];
-  treatment_categories?: { category_id: string }[];
-}
-
-export interface AestheticCase {
-  id: string;
-  title: string;
-  description: string;
-  image_url: string;
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-  case_categories?: { category_id: string }[];
-  case_treatments?: { treatment_id: string }[];
+  treatment_improvement_categories?: { category_id: string }[];
+  treatment_cases?: TreatmentCase[];
 }
