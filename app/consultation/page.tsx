@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Check, Sparkles, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, Check, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import Link from 'next/link';
 
 export default function ConsultationPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   const [categories, setCategories] = useState<any[]>([]);
   const [systemTexts, setSystemTexts] = useState<Record<string, string>>({});
@@ -28,18 +28,10 @@ export default function ConsultationPage() {
         supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('system_texts').select('*')
       ]);
-
-      if (catsRes.error) throw catsRes.error;
-      // 限制前 6 個以符合 3x2 網格
-      setCategories((catsRes.data || []).slice(0, 6));
-
-      const texts = (textsRes.data || []).reduce((acc: any, curr) => {
-        acc[curr.key] = curr.value;
-        return acc;
-      }, {});
-      setSystemTexts(texts);
-    } catch (err: any) {
-      setError('系統資料初始化失敗');
+      setCategories(catsRes.data || []);
+      setSystemTexts((textsRes.data || []).reduce((acc: any, curr) => ({ ...acc, [curr.key]: curr.value }), {}));
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -51,7 +43,7 @@ export default function ConsultationPage() {
     );
   };
 
-  const handleNext = async () => {
+  const handleGenerate = async () => {
     if (selectedCategoryIds.length === 0) return;
     setLoading(true);
     try {
@@ -61,66 +53,80 @@ export default function ConsultationPage() {
         .in('treatment_improvement_categories.category_id', selectedCategoryIds)
         .order('sort_order', { ascending: true });
       
-      if (error) throw error;
-      const uniqueTreatments = Array.from(new Map(data.map(item => [item.id, item])).values());
+      const uniqueTreatments = Array.from(new Map((data || []).map(item => [item.id, item])).values());
       setRecommendations(uniqueTreatments);
       setStep(2);
-    } catch (err: any) {
-      setError('推薦方案生成失敗');
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 動態渲染圖示 Helper
-  const renderCategoryIcon = (cat: any, isSelected: boolean) => {
+  const getIconUrl = (cat: any) => {
     if (cat.icon_image_path) {
-      const imageUrl = `${supabase.storage.from('icons').getPublicUrl(cat.icon_image_path).data.publicUrl}?v=${Date.parse(cat.icon_image_updated_at || cat.updated_at)}`;
-      return (
-        <div className="w-24 h-24 mb-4 flex items-center justify-center overflow-hidden rounded-full bg-gray-50/50 shadow-inner">
+      return `${supabase.storage.from('icons').getPublicUrl(cat.icon_image_path).data.publicUrl}?v=${cat.icon_image_updated_at ? Date.parse(cat.icon_image_updated_at) : '1'}`;
+    }
+    return cat.icon_url || null;
+  };
+
+  const renderIcon = (cat: any, isSelected: boolean) => {
+    const imageUrl = getIconUrl(cat);
+    
+    return (
+      <div className={`
+        relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center overflow-hidden transition-all duration-500
+        ${isSelected ? 'bg-amber-100 ring-4 ring-white shadow-lg' : 'bg-amber-50/60 shadow-inner group-hover:bg-amber-100'}
+      `}>
+        {imageUrl ? (
           <img 
             src={imageUrl} 
-            alt={cat.name} 
-            className={`w-full h-full object-cover object-center transition-all duration-500 ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`} 
+            alt="" 
+            className={`w-full h-full object-cover object-center transition-transform duration-700 ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`} 
           />
-        </div>
-      );
-    }
-
-    // Fallback to Lucide
-    const IconComponent = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
-    return (
-      <div className={`w-24 h-24 mb-4 flex items-center justify-center rounded-full ${isSelected ? 'bg-clinic-gold/20' : 'bg-gray-50'}`}>
-        <IconComponent size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
+        ) : (
+          (() => {
+            const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
+            return <Icon size={isSelected ? 48 : 40} className={isSelected ? 'text-amber-600' : 'text-amber-400/80'} />;
+          })()
+        )}
+        {/* Subtle Overlay for consistency */}
+        <div className="absolute inset-0 ring-1 ring-inset ring-black/5 rounded-full"></div>
       </div>
     );
   };
 
-  if (loading && step === 1 && categories.length === 0) {
+  if (loading && categories.length === 0) {
     return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
   }
 
   return (
-    <div className="h-screen bg-clinic-cream flex flex-col p-8 md:p-10 relative overflow-hidden bg-pattern">
-      <header className="flex items-center justify-between mb-8 z-10 shrink-0">
-        <button onClick={() => step === 1 ? router.push('/') : setStep(1)} className="p-4 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={32} /></button>
+    <div className="h-screen bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-hidden bg-pattern">
+      {/* Header */}
+      <header className="flex items-center justify-between mb-6 z-10 shrink-0">
+        <button onClick={() => step === 1 ? router.push('/') : setStep(1)} className="p-4 bg-white/80 backdrop-blur-sm shadow-sm rounded-2xl text-gray-400 hover:text-clinic-gold transition-all border border-white">
+          <ChevronLeft size={28} />
+        </button>
         <div className="text-center">
-          <h2 className="text-3xl font-light text-clinic-dark tracking-widest uppercase">{step === 1 ? (systemTexts['consult_step1_title'] || '您的肌膚困擾') : (systemTexts['consult_step2_title'] || '專業推薦方案')}</h2>
-          <div className="flex justify-center mt-2 gap-1">
-            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${step === 1 ? 'bg-clinic-gold w-20' : 'bg-gray-200'}`}></div>
-            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${step === 2 ? 'bg-clinic-gold w-20' : 'bg-gray-200'}`}></div>
+          <h2 className="text-2xl md:text-3xl font-light text-clinic-dark tracking-[0.2em] uppercase">
+            {step === 1 ? (systemTexts['consult_step1_title'] || '改善項目') : '專業推薦方案'}
+          </h2>
+          <div className="flex justify-center mt-2 gap-1.5">
+            <div className={`h-1 w-10 rounded-full transition-all duration-500 ${step === 1 ? 'bg-clinic-gold w-16' : 'bg-gray-200'}`}></div>
+            <div className={`h-1 w-10 rounded-full transition-all duration-500 ${step === 2 ? 'bg-clinic-gold w-16' : 'bg-gray-200'}`}></div>
           </div>
         </div>
-        <div className="w-16"></div>
+        <div className="w-14"></div>
       </header>
 
       {step === 1 ? (
-        <div className="flex-1 flex flex-col items-center max-w-6xl mx-auto w-full z-10 overflow-hidden">
-          <div className="mb-8 text-center animate-fade-in shrink-0">
-            <h3 className="text-4xl font-light text-gray-700">{systemTexts['consult_instruction'] || '請選擇您想改善的問題'}</h3>
+        <div className="flex-1 flex flex-col items-center max-w-7xl mx-auto w-full z-10 overflow-hidden">
+          <div className="mb-6 text-center animate-fade-in shrink-0">
+            <h3 className="text-3xl md:text-4xl font-light text-gray-700">{systemTexts['consult_instruction'] || '想改善的問題 (可複選)'}</h3>
           </div>
 
-          <div className="grid grid-cols-3 grid-rows-2 gap-6 w-full flex-1 mb-8">
+          {/* Grid: 2 cols on mobile, 3 on iPad/md, 4 on desktop/xl */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 w-full flex-1 overflow-y-auto scrollbar-hide pb-24">
             {categories.map((cat, idx) => {
               const isSelected = selectedCategoryIds.includes(cat.id);
               return (
@@ -128,21 +134,23 @@ export default function ConsultationPage() {
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
                   style={{ animationDelay: `${idx * 0.05}s` }}
-                  className={`group h-[260px] rounded-[2.5rem] flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 relative animate-fade-in shadow-sm border-2
+                  className={`
+                    group relative flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 animate-fade-in
+                    h-[200px] md:h-[230px] lg:h-[240px] rounded-[2.5rem] border-2 shadow-sm backdrop-blur-sm
                     ${isSelected 
-                      ? 'bg-clinic-gold/5 border-clinic-gold shadow-xl scale-[1.02]' 
-                      : 'bg-white border-gray-100 hover:shadow-lg hover:border-clinic-gold/20'
+                      ? 'bg-amber-50/60 border-amber-400 shadow-amber-200/20 z-10 scale-[1.02]' 
+                      : 'bg-white/70 border-white hover:border-amber-200 hover:shadow-md'
                     }
                   `}
                 >
-                  {renderCategoryIcon(cat, isSelected)}
-                  <span className={`text-2xl font-black tracking-[0.2em] ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
+                  {renderIcon(cat, isSelected)}
+                  <span className={`mt-4 text-xl md:text-2xl font-black tracking-[0.1em] ${isSelected ? 'text-amber-700' : 'text-gray-600'}`}>
                     {cat.name}
                   </span>
                   
                   {isSelected && (
-                    <div className="absolute top-4 right-4 bg-clinic-gold p-2 rounded-full shadow-md animate-fade-in">
-                      <Check size={20} className="text-white" />
+                    <div className="absolute top-4 right-4 bg-amber-500 p-1.5 rounded-full shadow-lg border-2 border-white">
+                      <Check size={16} className="text-white" strokeWidth={4} />
                     </div>
                   )}
                 </button>
@@ -150,32 +158,54 @@ export default function ConsultationPage() {
             })}
           </div>
 
-          <div className="shrink-0 pb-4">
+          {/* Floating Action Button */}
+          <div className="fixed bottom-10 left-0 right-0 flex justify-center z-20 px-6">
             <button 
               disabled={selectedCategoryIds.length === 0 || loading} 
-              onClick={handleNext} 
-              className="btn-gold text-2xl px-20 py-6 disabled:opacity-30 shadow-clinic-gold/30 uppercase tracking-widest font-black"
+              onClick={handleGenerate} 
+              className={`
+                flex items-center gap-4 px-16 py-6 rounded-full text-2xl font-black tracking-widest transition-all shadow-2xl
+                ${selectedCategoryIds.length > 0 
+                  ? 'bg-clinic-gold text-white scale-100 hover:scale-105 active:scale-95 shadow-clinic-gold/40' 
+                  : 'bg-gray-200 text-gray-400 scale-90 opacity-50 cursor-not-allowed'
+                }
+              `}
             >
-              {loading ? 'AI 分析中...' : '生成專屬推薦方案'} <ArrowRight size={32} className="ml-2" />
+              {loading ? <Loader2 className="animate-spin" /> : '分析推薦方案'}
+              <ArrowRight size={28} />
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex-1 max-w-7xl mx-auto w-full z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 overflow-y-auto animate-fade-in scrollbar-hide">
+        /* Step 2: Recommendations */
+        <div className="flex-1 max-w-7xl mx-auto w-full z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-10 overflow-y-auto animate-fade-in scrollbar-hide">
           {recommendations.length > 0 ? recommendations.map((t, idx) => (
-            <div key={t.id} style={{ animationDelay: `${idx * 0.1}s` }} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500 animate-fade-in">
-              <div className="h-64 relative overflow-hidden bg-gray-100">
-                <img src={t.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={t.title} />
+            <Link 
+              href={`/treatments/${t.id}`} 
+              key={t.id} 
+              style={{ animationDelay: `${idx * 0.1}s` }} 
+              className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl hover:border-amber-200 transition-all duration-500 animate-fade-in border border-white"
+            >
+              <div className="h-56 md:h-64 relative overflow-hidden bg-gray-100 shrink-0">
+                <img src={t.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-sm">
+                   <div className="text-amber-600 font-black text-sm flex items-center gap-2">詳情與案例 <ArrowRight size={14} /></div>
+                </div>
               </div>
               <div className="p-8 flex-1 flex flex-col">
                 <h4 className="text-2xl font-black text-gray-800 mb-3 group-hover:text-clinic-gold transition-colors">{t.title}</h4>
-                <p className="text-gray-500 mb-6 flex-1 leading-relaxed text-base italic line-clamp-3">{t.description || '專業醫美團隊為您量身打造的極致美學方案。'}</p>
-                <div className="flex items-end justify-between">
-                   <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">預估費用</div>
-                   <div className="text-3xl font-black text-clinic-gold tracking-tight"><span className="text-sm mr-1 opacity-60">NT$</span>{t.price?.toLocaleString() || '-'}</div>
+                <p className="text-gray-500 mb-6 flex-1 leading-relaxed text-base italic line-clamp-3">
+                  {t.description || '專業醫美團隊為您量身打造的極致美學方案。'}
+                </p>
+                <div className="flex items-end justify-between pt-4 border-t border-gray-50">
+                   <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">諮詢費用約</div>
+                   <div className="text-3xl font-black text-clinic-gold tracking-tight">
+                    <span className="text-sm mr-1 opacity-60">NT$</span>
+                    {t.price ? t.price.toLocaleString() : '-'}
+                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           )) : (
             <div className="col-span-full py-48 text-center flex flex-col items-center justify-center">
                <Sparkles size={80} className="text-gray-200 mb-6" />
