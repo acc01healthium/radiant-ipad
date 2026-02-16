@@ -17,7 +17,6 @@ export default function TreatmentListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   
-  // Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -101,7 +100,6 @@ export default function TreatmentListPage() {
       }
 
       if (treatmentId) {
-        // 1. 同步分類
         await supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId);
         if (selectedCategoryIds.length > 0) {
           await supabase.from('treatment_improvement_categories').insert(
@@ -109,7 +107,6 @@ export default function TreatmentListPage() {
           );
         }
 
-        // 2. 同步價格
         await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
         if (priceOptions.length > 0) {
           await supabase.from('treatment_price_options').insert(
@@ -117,7 +114,6 @@ export default function TreatmentListPage() {
           );
         }
 
-        // 3. 同步案例 (先刪除舊的再新增目前的，或是根據 ID 更新)
         await supabase.from('treatment_cases').delete().eq('treatment_id', treatmentId);
         if (cases.length > 0) {
           await supabase.from('treatment_cases').insert(
@@ -172,7 +168,7 @@ export default function TreatmentListPage() {
           <h2 className="text-4xl font-black text-gray-800 tracking-tight">療程項目與見證管理</h2>
           <p className="text-gray-500 mt-2 font-medium">一站式管理療程、價格、分類與術前後見證</p>
         </div>
-        <button onClick={() => openModal()} className="btn-gold px-12 py-5 text-lg shadow-clinic-gold/30"><Plus size={24} /> 新增療程</button>
+        <button onClick={() => openModal()} className="btn-gold px-12 py-5 text-lg shadow-clinic-gold/30 shrink-0"><Plus size={24} /> 新增療程</button>
       </div>
 
       {loading ? <div className="p-40 flex justify-center"><Loader2 className="animate-spin text-clinic-gold" size={64} /></div> : (
@@ -208,7 +204,7 @@ export default function TreatmentListPage() {
                   <td className="p-8 font-bold text-gray-400">
                     {t.treatment_cases?.length || 0} 個見證
                   </td>
-                  <td className="p-8 text-right flex justify-end gap-3 pt-12">
+                  <td className="p-8 text-right flex justify-end gap-3">
                     <button onClick={() => openModal(t)} className="p-3 border rounded-xl hover:bg-white hover:shadow-md transition-all"><Edit3 size={18} /></button>
                     <button onClick={async () => { if(confirm('確定要刪除此療程與所有相關數據？')) { await supabase.from('treatments').delete().eq('id', t.id); fetchData(); }}} className="p-3 border rounded-xl hover:bg-red-50 text-red-500"><Trash2 size={18} /></button>
                   </td>
@@ -220,15 +216,16 @@ export default function TreatmentListPage() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-6 overflow-y-auto">
-          <div className="bg-white w-full max-w-6xl rounded-[3.5rem] shadow-2xl animate-fade-in my-auto max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="p-8 border-b flex justify-between items-center bg-clinic-cream sticky top-0 z-10">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-6 overflow-hidden">
+          {/* 修復點：調整 Modal 寬度比例，確保在大螢幕與 iPad 上都能看清。使用 flex-col 隔離 header/footer 與 body */}
+          <div className="bg-white w-[min(1100px,calc(100vw-48px))] rounded-[2.5rem] shadow-2xl animate-fade-in flex flex-col max-h-[calc(100dvh-48px)]">
+            <div className="p-8 border-b flex justify-between items-center bg-clinic-cream sticky top-0 z-10 shrink-0">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">{editingId ? '編輯療程內容' : '建立新療程'}</h3>
-              <button onClick={() => setIsModalOpen(false)}><X size={32} className="text-gray-400" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={32} className="text-gray-400" /></button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-10 space-y-12">
-               {/* 第一部分：基本資訊與分類 */}
+            {/* 修復點：核心內容區域獨立捲動 */}
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-12 scrollbar-thin">
                <section className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                   <div className="space-y-6">
                     <div className="space-y-2">
@@ -264,7 +261,7 @@ export default function TreatmentListPage() {
                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">主視覺海報 (Object-Contain)</label>
                     <div 
                       onClick={() => document.getElementById('main-img')?.click()}
-                      className="aspect-video bg-gray-50 border-4 border-dashed rounded-[2.5rem] flex items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 p-4 shadow-inner"
+                      className="aspect-video bg-gray-100 border-4 border-dashed rounded-[2.5rem] flex items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 p-4 shadow-inner"
                     >
                       {mainImagePreview ? (
                         <img src={mainImagePreview} className="max-w-full max-h-full object-contain drop-shadow-lg" />
@@ -279,16 +276,15 @@ export default function TreatmentListPage() {
                   </div>
                </section>
 
-               {/* 第二部分：價格方案 */}
                <section className="bg-gray-50/50 p-8 rounded-[2.5rem] border border-gray-100">
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Layers size={18}/> 價格方案設定</h4>
-                    <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '', price: 0, sessions: 1, sort_order: priceOptions.length + 1, is_active: true }])} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest"><PlusCircle size={20}/> 新增方案</button>
+                    <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '', price: 0, sessions: 1, sort_order: priceOptions.length + 1, is_active: true }])} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest hover:underline"><PlusCircle size={20}/> 新增方案</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {priceOptions.map((opt, i) => (
                       <div key={i} className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm relative group animate-fade-in">
-                        <button type="button" onClick={() => setPriceOptions(priceOptions.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-red-300 hover:text-red-500"><X size={16}/></button>
+                        <button type="button" onClick={() => setPriceOptions(priceOptions.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-red-300 hover:text-red-500 transition-colors"><X size={16}/></button>
                         <div className="space-y-4">
                           <input placeholder="方案名稱 (例:五堂特惠)" value={opt.label} onChange={e => { const n = [...priceOptions]; n[i].label = e.target.value; setPriceOptions(n); }} className="w-full text-sm font-black border-b pb-2 outline-none focus:border-clinic-gold" />
                           <div className="grid grid-cols-2 gap-4">
@@ -307,26 +303,25 @@ export default function TreatmentListPage() {
                   </div>
                </section>
 
-               {/* 第三部分：嵌入式案例管理 */}
                <section className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Camera size={18}/> 術前後見證案例 (掛載於此療程)</h4>
-                    <button type="button" onClick={addCase} className="btn-gold py-2 px-6 text-xs font-black uppercase tracking-widest"><Plus size={16}/> 新增見證案例</button>
+                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Camera size={18}/> 術前後見證案例</h4>
+                    <button type="button" onClick={addCase} className="btn-gold py-2 px-6 text-xs font-black uppercase tracking-widest"><Plus size={16}/> 新增見證</button>
                   </div>
 
                   <div className="space-y-6">
                     {cases.map((c, idx) => (
-                      <div key={c.id} className="bg-white border-2 border-dashed border-gray-100 p-8 rounded-[2.5rem] grid grid-cols-1 lg:grid-cols-3 gap-8 relative group animate-fade-in">
+                      <div key={c.id} className="bg-white border-2 border-dashed border-gray-200 p-8 rounded-[2.5rem] grid grid-cols-1 lg:grid-cols-3 gap-8 relative group animate-fade-in hover:border-clinic-gold/20 transition-all">
                         <button type="button" onClick={() => deleteCase(c.id)} className="absolute top-6 right-6 p-2 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"><Trash2 size={20}/></button>
                         
                         <div className="lg:col-span-1 space-y-4">
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase">見證標題</label>
-                            <input value={c.title} onChange={e => updateCase(c.id, 'title', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-sm font-bold outline-none" placeholder="例: 小美皮秒案例" />
+                            <input value={c.title} onChange={e => updateCase(c.id, 'title', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border focus:border-clinic-gold" placeholder="例: 小美皮秒案例" />
                           </div>
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase">見證敘述</label>
-                            <textarea value={c.description} onChange={e => updateCase(c.id, 'description', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-sm h-32 resize-none" placeholder="描述術後改善情況..." />
+                            <textarea value={c.description} onChange={e => updateCase(c.id, 'description', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl text-sm h-32 resize-none border focus:border-clinic-gold" placeholder="描述術後改善情況..." />
                           </div>
                         </div>
 
@@ -353,14 +348,14 @@ export default function TreatmentListPage() {
                     {cases.length === 0 && <div className="py-20 text-center border-2 border-dashed rounded-[2.5rem] text-gray-300 italic text-sm">尚未新增任何術前後案例。</div>}
                   </div>
                </section>
-
-               <div className="sticky bottom-0 bg-white/95 backdrop-blur py-6 border-t z-10">
-                  <button type="submit" disabled={saving} className="btn-gold w-full py-6 text-xl shadow-clinic-gold/40">
-                    {saving ? <Loader2 className="animate-spin" /> : <Save />}
-                    {saving ? '正在同步數據到 Supabase...' : '儲存所有療程資訊與案例'}
-                  </button>
-               </div>
             </form>
+
+            <div className="p-8 border-t flex justify-end bg-white sticky bottom-0 z-10 shrink-0">
+               <button type="submit" onClick={handleSubmit} disabled={saving} className="btn-gold px-16 py-5 text-xl shadow-clinic-gold/40 w-full md:w-auto">
+                 {saving ? <Loader2 className="animate-spin" /> : <Save />}
+                 {saving ? '正在儲存...' : '儲存變更並同步'}
+               </button>
+            </div>
           </div>
         </div>
       )}
@@ -374,16 +369,16 @@ function CaseImageDrop({ label, url, onUpload }: { label: string, url: string, o
 
   return (
     <div className="space-y-2">
-      <label className="text-[10px] font-black text-gray-400 uppercase text-center block">{label}</label>
+      <label className="text-[10px] font-black text-gray-400 uppercase text-center block tracking-widest">{label}</label>
       <div 
         onClick={() => inputRef.current?.click()}
-        className="aspect-[4/5] bg-gray-50 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative hover:border-amber-200 transition-all group"
+        className="aspect-[4/5] bg-gray-50 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative hover:border-amber-200 transition-all group shadow-inner"
       >
         {loading ? <Loader2 className="animate-spin text-clinic-gold" /> : (
           url ? <img src={url} className="w-full h-full object-cover" /> : (
             <div className="text-center opacity-30 group-hover:opacity-100 transition-opacity">
               <LucideImage size={32} className="mx-auto" />
-              <span className="text-[10px] font-black uppercase mt-1 block">點擊上傳</span>
+              <span className="text-[10px] font-black uppercase mt-2 block">點擊上傳</span>
             </div>
           )
         )}

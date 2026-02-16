@@ -39,17 +39,18 @@ function ConsultationContent() {
   };
 
   const renderIcon = (cat: any, isSelected: boolean) => {
+    // 修正點：統一圖示容器尺寸與 object-fit，iPad 下更清晰
     if (cat.icon_image_path) {
       const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
       return (
-        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden mb-4 border-2 border-amber-100 shadow-inner bg-amber-50/30">
+        <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-amber-100 shadow-inner bg-amber-50/30 shrink-0">
           <img src={data.publicUrl} alt="" className="w-full h-full object-cover" />
         </div>
       );
     }
     const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
     return (
-      <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
+      <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
         <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
       </div>
     );
@@ -58,9 +59,10 @@ function ConsultationContent() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
 
   return (
-    <div className="h-screen max-h-screen bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-hidden bg-pattern">
-      <header className="flex items-center justify-between mb-4 z-10 shrink-0">
-        <button onClick={() => router.push('/')} className="p-3 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold"><ChevronLeft size={28} /></button>
+    // 修復點：改用 min-h-[100dvh] 確保在任何設備（特別是 iPad Safari）都不會因地址欄影響佈局
+    <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-x-hidden bg-pattern">
+      <header className="flex items-center justify-between mb-8 z-10 shrink-0">
+        <button onClick={() => router.push('/')} className="p-3 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={28} /></button>
         <div className="text-center">
           <h2 className="text-2xl md:text-3xl font-light text-clinic-dark tracking-widest uppercase">您的肌膚困擾</h2>
           <div className="h-1 w-12 bg-clinic-gold mx-auto mt-2 rounded-full"></div>
@@ -68,15 +70,11 @@ function ConsultationContent() {
         <div className="w-12"></div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center max-w-6xl mx-auto w-full z-10 overflow-hidden">
-        <p className="text-gray-500 mb-6 font-light">請選擇一個或多個您感興趣的改善項目</p>
+      <div className="flex-1 flex flex-col items-center justify-start max-w-7xl mx-auto w-full z-10">
+        <p className="text-gray-500 mb-8 font-light tracking-wide text-center">請選擇一個或多個您感興趣的改善項目</p>
         
-        {/* iPad Optimized Grid: no scroll if 6-8 items */}
-        <div className={`
-          grid w-full gap-4 md:gap-6 flex-1 
-          ${categories.length <= 6 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-3 md:grid-cols-4'}
-          content-center overflow-y-auto scrollbar-hide
-        `}>
+        {/* 修復點：優化 Grid 響應式佈局。iPad (1024px) 會剛好顯示 4 欄 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 w-full gap-4 md:gap-6 pb-32">
           {categories.map((cat) => {
             const isSelected = selectedIds.includes(cat.id);
             return (
@@ -84,9 +82,9 @@ function ConsultationContent() {
                 key={cat.id}
                 onClick={() => toggleSelect(cat.id)}
                 className={`
-                  relative glass-card flex flex-col items-center justify-center p-6 transition-all duration-300 transform active:scale-95
+                  relative glass-card flex flex-col items-center justify-center p-8 transition-all duration-300 transform active:scale-95
                   ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
-                  h-full max-h-[180px] md:max-h-[240px]
+                  aspect-[4/3] min-h-[180px]
                 `}
               >
                 {renderIcon(cat, isSelected)}
@@ -94,8 +92,8 @@ function ConsultationContent() {
                   {cat.name}
                 </span>
                 {isSelected && (
-                  <div className="absolute top-4 right-4 bg-clinic-gold p-1 rounded-full text-white shadow-md">
-                    <Check size={16} />
+                  <div className="absolute top-4 right-4 bg-clinic-gold p-1.5 rounded-full text-white shadow-md">
+                    <Check size={18} />
                   </div>
                 )}
               </button>
@@ -104,13 +102,13 @@ function ConsultationContent() {
         </div>
       </div>
 
-      <div className="fixed bottom-10 left-0 right-0 flex justify-center z-20">
+      <div className="fixed bottom-10 left-0 right-0 flex justify-center z-20 px-6">
         <button 
           disabled={selectedIds.length === 0}
           onClick={handleNext}
           className={`
-            btn-gold px-12 py-5 text-xl tracking-widest gap-4 shadow-2xl transition-all
-            ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-110'}
+            btn-gold w-full max-w-lg py-6 text-xl tracking-widest gap-4 shadow-2xl transition-all
+            ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-100 hover:scale-[1.02]'}
           `}
         >
           查看專家推薦方案 <ArrowRight size={28} />
