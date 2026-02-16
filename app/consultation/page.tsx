@@ -30,7 +30,8 @@ export default function ConsultationPage() {
       ]);
 
       if (catsRes.error) throw catsRes.error;
-      setCategories(catsRes.data || []);
+      // 限制前 6 個以符合 3x2 網格
+      setCategories((catsRes.data || []).slice(0, 6));
 
       const texts = (textsRes.data || []).reduce((acc: any, curr) => {
         acc[curr.key] = curr.value;
@@ -76,11 +77,11 @@ export default function ConsultationPage() {
     if (cat.icon_image_path) {
       const imageUrl = `${supabase.storage.from('icons').getPublicUrl(cat.icon_image_path).data.publicUrl}?v=${Date.parse(cat.icon_image_updated_at || cat.updated_at)}`;
       return (
-        <div className="w-16 h-16 md:w-20 md:h-20 mb-2 flex items-center justify-center overflow-hidden rounded-2xl bg-gray-50/50">
+        <div className="w-24 h-24 mb-4 flex items-center justify-center overflow-hidden rounded-full bg-gray-50/50 shadow-inner">
           <img 
             src={imageUrl} 
             alt={cat.name} 
-            className={`w-full h-full object-cover transition-all duration-500 ${isSelected ? 'brightness-0 invert scale-110' : 'group-hover:scale-110'}`} 
+            className={`w-full h-full object-cover object-center transition-all duration-500 ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`} 
           />
         </div>
       );
@@ -88,7 +89,11 @@ export default function ConsultationPage() {
 
     // Fallback to Lucide
     const IconComponent = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
-    return <IconComponent size={isSelected ? 48 : 36} className={isSelected ? 'text-white' : 'text-clinic-gold'} />;
+    return (
+      <div className={`w-24 h-24 mb-4 flex items-center justify-center rounded-full ${isSelected ? 'bg-clinic-gold/20' : 'bg-gray-50'}`}>
+        <IconComponent size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
+      </div>
+    );
   };
 
   if (loading && step === 1 && categories.length === 0) {
@@ -96,8 +101,8 @@ export default function ConsultationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-clinic-cream flex flex-col p-8 md:p-12 relative overflow-hidden bg-pattern">
-      <header className="flex items-center justify-between mb-16 z-10">
+    <div className="h-screen bg-clinic-cream flex flex-col p-8 md:p-10 relative overflow-hidden bg-pattern">
+      <header className="flex items-center justify-between mb-8 z-10 shrink-0">
         <button onClick={() => step === 1 ? router.push('/') : setStep(1)} className="p-4 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={32} /></button>
         <div className="text-center">
           <h2 className="text-3xl font-light text-clinic-dark tracking-widest uppercase">{step === 1 ? (systemTexts['consult_step1_title'] || '您的肌膚困擾') : (systemTexts['consult_step2_title'] || '專業推薦方案')}</h2>
@@ -110,46 +115,64 @@ export default function ConsultationPage() {
       </header>
 
       {step === 1 ? (
-        <div className="flex-1 flex flex-col items-center max-w-5xl mx-auto w-full z-10">
-          <div className="mb-16 text-center animate-fade-in">
-            <h3 className="text-4xl font-light text-gray-700 mb-6">{systemTexts['consult_instruction'] || '請選擇 1~3 項您想改善的問題'}</h3>
+        <div className="flex-1 flex flex-col items-center max-w-6xl mx-auto w-full z-10 overflow-hidden">
+          <div className="mb-8 text-center animate-fade-in shrink-0">
+            <h3 className="text-4xl font-light text-gray-700">{systemTexts['consult_instruction'] || '請選擇您想改善的問題'}</h3>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-10 w-full">
+          <div className="grid grid-cols-3 grid-rows-2 gap-6 w-full flex-1 mb-8">
             {categories.map((cat, idx) => {
               const isSelected = selectedCategoryIds.includes(cat.id);
               return (
                 <button
                   key={cat.id}
                   onClick={() => toggleCategory(cat.id)}
-                  style={{ animationDelay: `${idx * 0.1}s` }}
-                  className={`group aspect-square rounded-[3rem] flex flex-col items-center justify-center gap-4 transition-all duration-500 transform active:scale-90 relative animate-fade-in shadow-sm ${isSelected ? 'bg-clinic-rose text-white shadow-2xl scale-110 border-8 border-white' : 'bg-white text-gray-600 hover:shadow-xl border border-gray-100'}`}
+                  style={{ animationDelay: `${idx * 0.05}s` }}
+                  className={`group h-[260px] rounded-[2.5rem] flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 relative animate-fade-in shadow-sm border-2
+                    ${isSelected 
+                      ? 'bg-clinic-gold/5 border-clinic-gold shadow-xl scale-[1.02]' 
+                      : 'bg-white border-gray-100 hover:shadow-lg hover:border-clinic-gold/20'
+                    }
+                  `}
                 >
                   {renderCategoryIcon(cat, isSelected)}
-                  <span className="text-2xl font-black tracking-widest">{cat.name}</span>
-                  {isSelected && <div className="absolute -top-2 -right-2 bg-clinic-gold p-3 rounded-full shadow-lg border-2 border-white"><Check size={24} className="text-white" /></div>}
+                  <span className={`text-2xl font-black tracking-[0.2em] ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
+                    {cat.name}
+                  </span>
+                  
+                  {isSelected && (
+                    <div className="absolute top-4 right-4 bg-clinic-gold p-2 rounded-full shadow-md animate-fade-in">
+                      <Check size={20} className="text-white" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <button disabled={selectedCategoryIds.length === 0 || loading} onClick={handleNext} className="btn-gold text-2xl px-20 py-8 mt-24 disabled:opacity-30 shadow-clinic-gold/30 uppercase tracking-widest font-black">
-            {loading ? 'AI 分析中...' : '生成專屬推薦方案'} <ArrowRight size={32} className="ml-2" />
-          </button>
+          <div className="shrink-0 pb-4">
+            <button 
+              disabled={selectedCategoryIds.length === 0 || loading} 
+              onClick={handleNext} 
+              className="btn-gold text-2xl px-20 py-6 disabled:opacity-30 shadow-clinic-gold/30 uppercase tracking-widest font-black"
+            >
+              {loading ? 'AI 分析中...' : '生成專屬推薦方案'} <ArrowRight size={32} className="ml-2" />
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 max-w-7xl mx-auto w-full z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-20 animate-fade-in">
+        <div className="flex-1 max-w-7xl mx-auto w-full z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 overflow-y-auto animate-fade-in scrollbar-hide">
           {recommendations.length > 0 ? recommendations.map((t, idx) => (
-            <div key={t.id} style={{ animationDelay: `${idx * 0.15}s` }} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500 animate-fade-in">
-              <div className="h-72 relative overflow-hidden bg-gray-100">
+            <div key={t.id} style={{ animationDelay: `${idx * 0.1}s` }} className="glass-card overflow-hidden flex flex-col h-full group hover:shadow-2xl transition-all duration-500 animate-fade-in">
+              <div className="h-64 relative overflow-hidden bg-gray-100">
                 <img src={t.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={t.title} />
               </div>
-              <div className="p-10 flex-1 flex flex-col">
-                <h4 className="text-3xl font-black text-gray-800 mb-4 group-hover:text-clinic-gold transition-colors">{t.title}</h4>
-                <p className="text-gray-500 mb-10 flex-1 leading-relaxed text-lg italic">{t.description || '專業醫美團隊為您量身打造的極致美學方案。'}</p>
+              <div className="p-8 flex-1 flex flex-col">
+                <h4 className="text-2xl font-black text-gray-800 mb-3 group-hover:text-clinic-gold transition-colors">{t.title}</h4>
+                <p className="text-gray-500 mb-6 flex-1 leading-relaxed text-base italic line-clamp-3">{t.description || '專業醫美團隊為您量身打造的極致美學方案。'}</p>
                 <div className="flex items-end justify-between">
-                   <div className="text-sm text-gray-400 font-bold uppercase tracking-widest mb-1">預估費用</div>
-                   <div className="text-4xl font-black text-clinic-gold tracking-tight"><span className="text-lg mr-1 opacity-60">NT$</span>{t.price?.toLocaleString() || '-'}</div>
+                   <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">預估費用</div>
+                   <div className="text-3xl font-black text-clinic-gold tracking-tight"><span className="text-sm mr-1 opacity-60">NT$</span>{t.price?.toLocaleString() || '-'}</div>
                 </div>
               </div>
             </div>
