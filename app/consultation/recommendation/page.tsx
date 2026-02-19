@@ -23,16 +23,15 @@ function RecommendationContent() {
 
       setLoading(true);
       try {
-        // 修改查詢：透過關聯表篩選 treatments
         const { data, error } = await supabase
           .from('treatments')
           .select(`
             *,
-            treatment_price_plans (*),
-            treatment_cases:cases (*),
-            treatment_improvement_categories!inner (category_id)
+            treatment_price_options (*),
+            treatment_cases (*),
+            treatment_improvement_categories!inner (improvement_category_id)
           `)
-          .in('treatment_improvement_categories.category_id', cats)
+          .in('treatment_improvement_categories.improvement_category_id', cats)
           .eq('is_active', true)
           .order('sort_order', { ascending: true });
 
@@ -76,11 +75,12 @@ function RecommendationContent() {
       ) : (
         <div className="grid grid-cols-1 gap-12 md:gap-20 max-w-7xl mx-auto w-full pb-32">
           {treatments.map((t) => {
-            const cheapestOption = t.treatment_price_plans?.sort((a: any, b: any) => a.price - b.price)[0];
+            // 計算最低價格時，對標正確的欄位與 table
+            const cheapestOption = t.treatment_price_options?.sort((a: any, b: any) => a.price - b.price)[0];
             return (
               <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">
                 <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center p-8 border-r border-white/40">
-                  <img src={t.image_url} alt={t.title} className="max-w-full max-h-full object-contain relative z-10" />
+                  <img src={t.visual_path} alt={t.title} className="max-w-full max-h-full object-contain relative z-10" />
                 </div>
 
                 <div className="lg:w-[55%] p-8 md:p-12 flex flex-col">

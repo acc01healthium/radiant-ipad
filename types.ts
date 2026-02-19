@@ -24,8 +24,7 @@ export interface TreatmentCase {
   treatment_id: string;
   title: string;
   description: string;
-  before_image_url: string;
-  after_image_url: string;
+  image_path: string;
   sort_order: number;
 }
 
@@ -33,11 +32,10 @@ export interface Treatment {
   id: string;
   title: string;
   description: string;
-  image_url: string;
-  price: number;
+  visual_path: string;
   sort_order: number;
   is_active: boolean;
   treatment_price_options?: TreatmentPriceOption[];
-  treatment_improvement_categories?: { category_id: string }[];
+  treatment_improvement_categories?: { improvement_category_id: string }[];
   treatment_cases?: TreatmentCase[];
 }

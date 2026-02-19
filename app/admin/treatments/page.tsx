@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Plus, Trash2, Edit3, ImageIcon, X, Loader2, Save, 
@@ -31,37 +31,45 @@ export default function TreatmentListPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const [tRes, cRes] = await Promise.all([
-      supabase.from('treatments').select(`
-        *, 
-        treatment_price_plans:treatment_price_plans(*), 
-        treatment_improvement_categories(category_id),
-        treatment_cases:cases(*)
-      `).order('sort_order', { ascending: true }),
-      supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true })
-    ]);
-    setTreatments(tRes.data || []);
-    setCategories(cRes.data || []);
-    setLoading(false);
+    try {
+      const [tRes, cRes] = await Promise.all([
+        supabase.from('treatments').select(`
+          *, 
+          treatment_price_options(*), 
+          treatment_improvement_categories(improvement_category_id),
+          treatment_cases(*)
+        `).order('sort_order', { ascending: true }),
+        supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+      ]);
+
+      if (tRes.error) throw tRes.error;
+      setTreatments(tRes.data || []);
+      setCategories(cRes.data || []);
+    } catch (err) {
+      console.error("Fetch Data Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadFile = async (file: File, bucket: string, folder: string) => {
+    const ext = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const filePath = `${folder}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, { upsert: true });
+
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    return publicUrl;
   };
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
-  };
-
-  const handleImageUpload = async (file: File, bucket: string) => {
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(`${fileName}`, file);
-    if (error) throw error;
-    return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
-  };
-
-  const addCase = () => {
-    setCases([...cases, { id: `new-${Date.now()}`, title: '', description: '', image_path: '', sort_order: cases.length }]);
   };
 
   const updateCase = (id: string, field: string, value: any) => {
@@ -77,61 +85,76 @@ export default function TreatmentListPage() {
     if (saving) return;
     setSaving(true);
     try {
-      let finalImageUrl = mainImagePreview || '';
+      let finalVisualUrl = mainImagePreview || '';
       if (mainImageFile) {
-        finalImageUrl = await handleImageUpload(mainImageFile, 'treatment-images');
+        finalVisualUrl = await uploadFile(mainImageFile, 'treatment-visuals', 'main');
       }
 
-      const payload = {
+      const treatmentPayload = {
         title,
         description,
         sort_order: sortOrder,
-        image_url: finalImageUrl,
-        updated_at: new Date().toISOString()
+        visual_path: finalVisualUrl,
+        updated_at: new Date().toISOString(),
+        is_active: true
       };
 
       let treatmentId = editingId;
       if (editingId) {
-        await supabase.from('treatments').update(payload).eq('id', editingId);
+        const { error } = await supabase.from('treatments').update(treatmentPayload).eq('id', editingId);
+        if (error) throw error;
       } else {
-        const { data } = await supabase.from('treatments').insert([payload]).select().single();
+        const { data, error } = await supabase.from('treatments').insert([treatmentPayload]).select().single();
+        if (error) throw error;
         treatmentId = data.id;
       }
 
       if (treatmentId) {
-        // 1. 寫入欲改善項目關聯
+        // 1. 改善項目關聯
         await supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId);
         if (selectedCategoryIds.length > 0) {
           await supabase.from('treatment_improvement_categories').insert(
-            selectedCategoryIds.map(cid => ({ treatment_id: treatmentId, category_id: cid }))
+            selectedCategoryIds.map(cid => ({ treatment_id: treatmentId, improvement_category_id: cid }))
           );
         }
 
-        // 2. 寫入價格方案 (使用 prompt 指定的 table: treatment_price_plans)
-        await supabase.from('treatment_price_plans').delete().eq('treatment_id', treatmentId);
+        // 2. 價格方案儲存邏輯 (實作標籤 Mapping)
+        await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
         if (priceOptions.length > 0) {
-          await supabase.from('treatment_price_plans').insert(
-            priceOptions.map(opt => ({ 
+          const formattedPriceOptions = priceOptions.map((opt, idx) => {
+            let label = opt.label;
+            const sessions = Number(opt.sessions) || 1;
+            
+            // 標籤邏輯：若為空或 'EMPTY'，則自動生成
+            if (!label || label.trim() === '' || label === 'EMPTY') {
+              label = sessions === 1 ? '單堂' : `${sessions}堂`;
+            }
+
+            return {
               treatment_id: treatmentId,
-              label: opt.label,
-              price: opt.price,
-              sessions: opt.sessions,
-              sort_order: opt.sort_order,
+              label: label,
+              price: Number(opt.price) || 0,
+              sessions: sessions,
+              sort_order: idx,
               is_active: true
-            }))
-          );
+            };
+          });
+
+          const { error } = await supabase.from('treatment_price_options').insert(formattedPriceOptions);
+          if (error) throw error;
         }
 
-        // 3. 寫入見證案例 (使用 prompt 指定的 table: cases)
-        await supabase.from('cases').delete().eq('treatment_id', treatmentId);
+        // 3. 見證案例儲存
+        await supabase.from('treatment_cases').delete().eq('treatment_id', treatmentId);
         if (cases.length > 0) {
-          await supabase.from('cases').insert(
-            cases.map(c => ({
+          await supabase.from('treatment_cases').insert(
+            cases.map((c, idx) => ({
               treatment_id: treatmentId,
               title: c.title,
               description: c.description,
               image_path: c.image_path,
-              sort_order: c.sort_order
+              sort_order: idx,
+              is_active: true
             }))
           );
         }
@@ -140,7 +163,8 @@ export default function TreatmentListPage() {
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      console.error("Save Error:", err);
+      alert("儲存失敗: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -150,11 +174,17 @@ export default function TreatmentListPage() {
     if (t) {
       setEditingId(t.id);
       setTitle(t.title);
-      setDescription(t.description);
-      setSelectedCategoryIds(t.treatment_improvement_categories?.map((rel: any) => rel.category_id) || []);
-      setSortOrder(t.sort_order);
-      setMainImagePreview(t.image_url);
-      setPriceOptions(t.treatment_price_plans || []);
+      setDescription(t.description || '');
+      setSelectedCategoryIds(t.treatment_improvement_categories?.map((rel: any) => rel.improvement_category_id) || []);
+      setSortOrder(t.sort_order || 0);
+      setMainImagePreview(t.visual_path || '');
+      
+      // 讀取時將標籤 'EMPTY' 轉為 '單堂'
+      const mappedOptions = (t.treatment_price_options || []).map((opt: any) => ({
+        ...opt,
+        label: (opt.label === 'EMPTY' || !opt.label) ? '單堂' : opt.label
+      }));
+      setPriceOptions(mappedOptions);
       setCases(t.treatment_cases || []);
     } else {
       setEditingId(null);
@@ -163,9 +193,10 @@ export default function TreatmentListPage() {
       setSelectedCategoryIds([]);
       setSortOrder(treatments.length + 1);
       setMainImagePreview(null);
-      setPriceOptions([{ label: '單堂', sessions: 1, price: 0, sort_order: 1 }]);
+      setPriceOptions([{ label: '單堂', sessions: 1, price: 0 }]);
       setCases([]);
     }
+    setMainImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -197,14 +228,14 @@ export default function TreatmentListPage() {
                   <td className="p-8 font-mono text-gray-400 font-bold">{t.sort_order}</td>
                   <td className="p-8">
                     <div className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden border flex items-center justify-center p-2">
-                      <img src={t.image_url} className="max-w-full max-h-full object-contain" alt="" />
+                      <img src={t.visual_path} className="max-w-full max-h-full object-contain" alt="" />
                     </div>
                   </td>
                   <td className="p-8">
                     <div className="font-black text-gray-800 text-lg">{t.title}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {t.treatment_improvement_categories?.map((rel: any) => {
-                        const cat = categories.find(c => c.id === rel.category_id);
+                        const cat = categories.find(c => c.id === rel.improvement_category_id);
                         return cat ? <span key={cat.id} className="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-black uppercase tracking-tighter border border-amber-100">{cat.name}</span> : null;
                       })}
                     </div>
@@ -214,7 +245,7 @@ export default function TreatmentListPage() {
                   </td>
                   <td className="p-8 text-right flex justify-end gap-3">
                     <button onClick={() => openModal(t)} className="p-3 border rounded-xl hover:bg-white hover:shadow-md transition-all"><Edit3 size={18} /></button>
-                    <button onClick={async () => { if(confirm('確定要刪除此療程與所有相關數據？')) { await supabase.from('treatments').delete().eq('id', t.id); fetchData(); }}} className="p-3 border rounded-xl hover:bg-red-50 text-red-500"><Trash2 size={18} /></button>
+                    <button onClick={async () => { if(confirm('確定要刪除？')) { await supabase.from('treatments').delete().eq('id', t.id); fetchData(); }}} className="p-3 border rounded-xl hover:bg-red-50 text-red-500"><Trash2 size={18} /></button>
                   </td>
                 </tr>
               ))}
@@ -225,7 +256,6 @@ export default function TreatmentListPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-6">
-          {/* 修改 Modal 容器屬性，不變更 UI 風格 */}
           <div className="bg-white w-[min(1100px,calc(100vw-48px))] max-w-none rounded-[2.5rem] shadow-2xl flex flex-col max-h-[calc(100dvh-48px)] overflow-hidden">
             <div className="p-8 border-b flex justify-between items-center bg-clinic-cream sticky top-0 z-10 shrink-0">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">{editingId ? '編輯療程內容' : '建立新療程'}</h3>
@@ -286,14 +316,14 @@ export default function TreatmentListPage() {
                <section className="bg-gray-50/50 p-8 rounded-[2.5rem] border border-gray-100">
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Layers size={18}/> 價格方案設定</h4>
-                    <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '', price: 0, sessions: 1, sort_order: priceOptions.length + 1 }])} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest hover:underline"><PlusCircle size={20}/> 新增方案</button>
+                    <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '單堂', price: 0, sessions: 1 }])} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest hover:underline"><PlusCircle size={20}/> 新增方案</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {priceOptions.map((opt, i) => (
                       <div key={i} className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm relative group">
                         <button type="button" onClick={() => setPriceOptions(priceOptions.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-red-300 hover:text-red-500"><X size={16}/></button>
                         <div className="space-y-4">
-                          <input placeholder="方案名稱" value={opt.label} onChange={e => { const n = [...priceOptions]; n[i].label = e.target.value; setPriceOptions(n); }} className="w-full text-sm font-black border-b pb-2 outline-none focus:border-clinic-gold" />
+                          <input placeholder="例如：單堂 / 5堂" value={opt.label} onChange={e => { const n = [...priceOptions]; n[i].label = e.target.value; setPriceOptions(n); }} className="w-full text-sm font-black border-b pb-2 outline-none focus:border-clinic-gold" />
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                               <label className="text-[10px] font-black text-gray-300">金額</label>
@@ -312,8 +342,8 @@ export default function TreatmentListPage() {
 
                <section className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Camera size={18}/> 術前後見證案例 (單圖上傳)</h4>
-                    <button type="button" onClick={addCase} className="btn-gold py-2 px-6 text-xs font-black uppercase tracking-widest"><Plus size={16}/> 新增見證</button>
+                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Camera size={18}/> 術前後見證案例 (合併圖)</h4>
+                    <button type="button" onClick={() => setCases([...cases, { id: `temp-${Date.now()}`, title: '', description: '', image_path: '', sort_order: cases.length }])} className="btn-gold py-2 px-6 text-xs font-black uppercase tracking-widest"><Plus size={16}/> 新增見證</button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -327,7 +357,7 @@ export default function TreatmentListPage() {
                           ) : (
                             <div className="text-center opacity-30">
                               <LucideImage size={40} className="mx-auto" />
-                              <span className="text-[10px] font-black uppercase mt-2 block">上傳合成見證圖</span>
+                              <span className="text-[10px] font-black uppercase mt-2 block">點擊上傳見證圖</span>
                             </div>
                           )}
                           <input 
@@ -335,8 +365,10 @@ export default function TreatmentListPage() {
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
                               if(f){
-                                const url = await handleImageUpload(f, 'case-images');
-                                updateCase(c.id, 'image_path', url);
+                                try {
+                                  const url = await uploadFile(f, 'case-images', 'cases');
+                                  updateCase(c.id, 'image_path', url);
+                                } catch(e) { alert("圖片上傳失敗"); }
                               }
                             }} 
                           />

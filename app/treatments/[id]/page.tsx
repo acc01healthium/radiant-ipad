@@ -4,8 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-// Added Camera to the imports from lucide-react
-import { ChevronLeft, Sparkles, Loader2, DollarSign, Info, CheckCircle2, Camera } from 'lucide-react';
+import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera } from 'lucide-react';
 
 export default function TreatmentDetailPage() {
   const { id } = useParams();
@@ -20,10 +19,9 @@ export default function TreatmentDetailPage() {
   const fetchDetail = async () => {
     setLoading(true);
     try {
-      // 修改查詢：對接正確的子表
       const { data, error } = await supabase
         .from('treatments')
-        .select('*, treatment_price_plans(*), treatment_cases:cases(*)')
+        .select('*, treatment_price_options(*), treatment_cases(*)')
         .eq('id', id)
         .single();
       
@@ -42,7 +40,7 @@ export default function TreatmentDetailPage() {
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
       <div className="relative h-[45vh] w-full bg-gray-50 flex items-center justify-center p-8 overflow-hidden border-b">
-        <img src={treatment.image_url} className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl" alt={treatment.title} />
+        <img src={treatment.visual_path} className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl" alt={treatment.title} />
         <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
       </div>
 
@@ -66,13 +64,20 @@ export default function TreatmentDetailPage() {
                 <span className="text-sm font-black uppercase tracking-widest">課程方案</span>
               </div>
               <div className="space-y-4">
-                {treatment.treatment_price_plans?.length > 0 ? (
-                  treatment.treatment_price_plans.map((opt:any) => (
-                    <div key={opt.id} className="flex justify-between items-center">
-                      <span className="text-gray-600 font-bold">{opt.label} ({opt.sessions}堂)</span>
-                      <div className="text-2xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</div>
-                    </div>
-                  ))
+                {treatment.treatment_price_options?.length > 0 ? (
+                  treatment.treatment_price_options.sort((a:any, b:any) => a.sort_order - b.sort_order).map((opt:any) => {
+                    // 顯示邏輯：標籤 Mapping
+                    const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
+                      ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
+                      : opt.label;
+
+                    return (
+                      <div key={opt.id} className="flex justify-between items-center">
+                        <span className="text-gray-600 font-bold">{displayLabel} ({opt.sessions || 1}堂)</span>
+                        <div className="text-2xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</div>
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="text-gray-400 italic text-sm">洽詢專人規劃</div>
                 )}
@@ -86,7 +91,7 @@ export default function TreatmentDetailPage() {
                 <Camera className="text-clinic-gold" /> 術前後見證案例
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {treatment.treatment_cases.map((c: any) => (
+                {treatment.treatment_cases.sort((a:any, b:any) => a.sort_order - b.sort_order).map((c: any) => (
                   <div key={c.id} className="bg-white rounded-[2rem] border overflow-hidden shadow-sm group">
                     <div className="aspect-[4/3] bg-gray-50">
                       <img src={c.image_path} className="w-full h-full object-cover" />
@@ -100,12 +105,6 @@ export default function TreatmentDetailPage() {
               </div>
             </div>
           )}
-        </div>
-        
-        <div className="mt-12 text-center">
-          <button onClick={() => router.back()} className="btn-outline px-16 py-6 text-xl tracking-widest uppercase font-black">
-             返回推薦列表
-          </button>
         </div>
       </div>
     </div>
