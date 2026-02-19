@@ -5,8 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Plus, Trash2, Edit3, X, Loader2, Save, 
-  Layers, PlusCircle, Image as LucideImage 
+  Layers, PlusCircle, Image as LucideImage, Sparkles 
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 export default function TreatmentListPage() {
   const [treatments, setTreatments] = useState<any[]>([]);
@@ -20,7 +21,6 @@ export default function TreatmentListPage() {
   const [description, setDescription] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<number>(0);
-  
   const [priceOptions, setPriceOptions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -30,25 +30,33 @@ export default function TreatmentListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 僅選取確認存在的欄位，並正確 join 關聯表
-      const [tRes, cRes] = await Promise.all([
-        supabase.from('treatments')
-          .select(`
-            id, title, description, sort_order,
-            treatment_price_options (id, label, sessions, price, sort_order),
-            treatment_improvement_categories (improvement_category_id)
-          `)
-          .order('sort_order', { ascending: true }),
-        supabase.from('improvement_categories')
-          .select('id, name')
-          .order('sort_order', { ascending: true })
-      ]);
+      // 1. 抓取療程清單（含關聯）
+      const { data: tData, error: tError } = await supabase
+        .from('treatments')
+        .select(`
+          id, 
+          title, 
+          description, 
+          sort_order,
+          treatment_price_options (id, label, sessions, price, sort_order),
+          treatment_improvement_categories (improvement_category_id)
+        `)
+        .order('sort_order', { ascending: true });
 
-      if (tRes.error) throw tRes.error;
-      setTreatments(tRes.data || []);
-      setCategories(cRes.data || []);
+      if (tError) throw tError;
+
+      // 2. 抓取改善項目清單
+      const { data: cData, error: cError } = await supabase
+        .from('improvement_categories')
+        .select('id, name')
+        .order('sort_order', { ascending: true });
+
+      if (cError) throw cError;
+
+      setTreatments(tData || []);
+      setCategories(cData || []);
     } catch (err: any) {
-      console.error("Fetch Data Error:", err.message || err);
+      console.error("Fetch Data Error:", err.message);
     } finally {
       setLoading(false);
     }
@@ -65,8 +73,7 @@ export default function TreatmentListPage() {
     if (saving) return;
     setSaving(true);
     try {
-      // 1. 處理療程主檔：嚴格僅包含確認存在的欄位
-      const treatmentPayload: any = {
+      const treatmentPayload = {
         title,
         description,
         sort_order: sortOrder
@@ -74,6 +81,7 @@ export default function TreatmentListPage() {
       
       let treatmentId = editingId;
 
+      // 第一步：處理 Treatments 主檔
       if (editingId) {
         const { error: tError } = await supabase
           .from('treatments')
@@ -92,40 +100,32 @@ export default function TreatmentListPage() {
 
       if (!treatmentId) throw new Error("無法取得療程 ID");
 
-      // 2. 同步價格方案 (Sync Price Options)
-      const { error: delPriceError } = await supabase
-        .from('treatment_price_options')
-        .delete()
-        .eq('treatment_id', treatmentId);
+      // 第二步：同步價格方案
+      // 先刪除舊的
+      await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
       
-      if (delPriceError) throw delPriceError;
-
+      // 新增新的
       if (priceOptions.length > 0) {
-        const formattedPriceOptions = priceOptions.map((opt, idx) => ({
+        const optionsToInsert = priceOptions.map((opt, idx) => ({
           treatment_id: treatmentId,
           label: opt.label || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
           price: Number(opt.price) || 0,
           sessions: Number(opt.sessions) || 1,
           sort_order: idx
         }));
-        const { error: pErr } = await supabase.from('treatment_price_options').insert(formattedPriceOptions);
+        const { error: pErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
         if (pErr) throw pErr;
       }
 
-      // 3. 同步改善項目關聯 (Sync Improvement Categories)
-      const { error: delCatError } = await supabase
-        .from('treatment_improvement_categories')
-        .delete()
-        .eq('treatment_id', treatmentId);
+      // 第三步：同步改善項目關聯
+      await supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId);
       
-      if (delCatError) throw delCatError;
-
       if (selectedCategoryIds.length > 0) {
-        const categoryRelations = selectedCategoryIds.map(cid => ({
+        const relationsToInsert = selectedCategoryIds.map(cid => ({
           treatment_id: treatmentId,
           improvement_category_id: cid
         }));
-        const { error: cErr } = await supabase.from('treatment_improvement_categories').insert(categoryRelations);
+        const { error: cErr } = await supabase.from('treatment_improvement_categories').insert(relationsToInsert);
         if (cErr) throw cErr;
       }
 
@@ -133,9 +133,7 @@ export default function TreatmentListPage() {
       fetchData(); 
     } catch (err: any) {
       console.error("Submit Error:", err);
-      // 增強錯誤提示顯示
-      const errorDetail = err.details || err.message || JSON.stringify(err);
-      alert("儲存失敗: " + errorDetail);
+      alert("儲存失敗: " + (err.message || "未知錯誤"));
     } finally {
       setSaving(false);
     }
@@ -148,11 +146,9 @@ export default function TreatmentListPage() {
       setDescription(t.description || '');
       setSortOrder(t.sort_order || 0);
       
-      // 正確解析關聯 ID 陣列
       const categoryIds = t.treatment_improvement_categories?.map((rel: any) => rel.improvement_category_id) || [];
       setSelectedCategoryIds(categoryIds);
       
-      // 正確解析價格方案
       const mappedOptions = (t.treatment_price_options || []).map((opt: any) => ({
         ...opt,
         label: opt.label === 'EMPTY' ? '' : opt.label
@@ -197,7 +193,7 @@ export default function TreatmentListPage() {
                   <td className="p-8 font-mono text-gray-400 font-bold">{t.sort_order}</td>
                   <td className="p-8">
                     <div className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden border flex items-center justify-center">
-                       <LucideImage size={24} className="text-gray-300" />
+                       <Sparkles size={24} className="text-clinic-gold" />
                     </div>
                   </td>
                   <td className="p-8">

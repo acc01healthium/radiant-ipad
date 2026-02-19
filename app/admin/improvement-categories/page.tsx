@@ -3,10 +3,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Edit3, X, Loader2, Save, Tags, CheckSquare, Square, Calendar, Hash, Type, ImageIcon, UploadCloud, Scissors, Check } from 'lucide-react';
+import { Plus, Trash2, Edit3, X, Loader2, Save, UploadCloud, Image as ImageIcon } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
-// 圖片處理工具函數 (省略，保持不變)
+// 圖片處理工具函數
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -50,7 +50,6 @@ export default function CategoriesAdminPage() {
   const [iconName, setIconName] = useState('Sparkles');
   const [description, setDescription] = useState('');
   const [sortOrder, setSortOrder] = useState(0);
-  const [isActive, setIsActive] = useState(true);
   const [iconImageFile, setIconImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImagePath, setExistingImagePath] = useState<string | null>(null);
@@ -66,7 +65,8 @@ export default function CategoriesAdminPage() {
 
   const fetchCategories = async () => {
     setLoading(true);
-    const { data } = await supabase.from('improvement_categories').select('*').order('sort_order', { ascending: true });
+    // 移除 is_active 查詢
+    const { data } = await supabase.from('improvement_categories').select('id, name, icon_name, description, sort_order, icon_image_path').order('sort_order', { ascending: true });
     setCategories(data || []);
     setLoading(false);
   };
@@ -78,28 +78,31 @@ export default function CategoriesAdminPage() {
     try {
       let finalImagePath = existingImagePath;
       if (iconImageFile) {
-        if (existingImagePath) await supabase.storage.from('icons').remove([existingImagePath]);
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
-        const path = `improvement-categories/${editingId || 'new'}/${fileName}`;
+        const path = `improvement-categories/${fileName}`;
         const { data: uploadData, error } = await supabase.storage.from('icons').upload(path, iconImageFile, { contentType: 'image/webp' });
         if (error) throw error;
         finalImagePath = uploadData.path;
       }
+
       const payload = { 
         name: name.trim(), 
         icon_name: iconName.trim(),
         description: description.trim(),
         sort_order: Number(sortOrder), 
-        is_active: isActive, 
-        icon_image_path: finalImagePath,
-        icon_image_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString() 
+        icon_image_path: finalImagePath
       };
-      const { error } = editingId ? await supabase.from('improvement_categories').update(payload).eq('id', editingId) : await supabase.from('improvement_categories').insert([payload]);
+
+      const { error } = editingId 
+        ? await supabase.from('improvement_categories').update(payload).eq('id', editingId) 
+        : await supabase.from('improvement_categories').insert([payload]);
+      
       if (error) throw error;
       setIsModalOpen(false);
       fetchCategories();
-    } catch (err: any) { alert("儲存失敗: " + err.message); } finally { setSaving(false); }
+    } catch (err: any) { 
+      alert("儲存失敗: " + (err.message || "未知錯誤")); 
+    } finally { setSaving(false); }
   };
 
   const openModal = (cat?: any) => {
@@ -109,14 +112,13 @@ export default function CategoriesAdminPage() {
       setIconName(cat.icon_name || 'Sparkles');
       setDescription(cat.description || '');
       setSortOrder(cat.sort_order || 0);
-      setIsActive(cat.is_active ?? true);
       setExistingImagePath(cat.icon_image_path || null);
       if (cat.icon_image_path) {
         const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
-        setImagePreview(`${data.publicUrl}?t=${cat.icon_image_updated_at ? Date.parse(cat.icon_image_updated_at) : Date.now()}`);
+        setImagePreview(data.publicUrl);
       } else setImagePreview(null);
     } else {
-      setEditingId(null); setName(''); setIconName('Sparkles'); setDescription(''); setSortOrder(categories.length + 1); setIsActive(true); setExistingImagePath(null); setImagePreview(null);
+      setEditingId(null); setName(''); setIconName('Sparkles'); setDescription(''); setSortOrder(categories.length + 1); setExistingImagePath(null); setImagePreview(null);
     }
     setIconImageFile(null);
     setIsModalOpen(true);
@@ -163,7 +165,6 @@ export default function CategoriesAdminPage() {
                 <th className="p-8 w-24">排序</th>
                 <th className="p-8 w-24">圖示</th>
                 <th className="p-8">分類名稱</th>
-                <th className="p-8">狀態</th>
                 <th className="p-8 text-right">操作</th>
               </tr>
             </thead>
@@ -173,11 +174,14 @@ export default function CategoriesAdminPage() {
                   <td className="p-8 font-mono text-gray-400 font-bold">{c.sort_order}</td>
                   <td className="p-8">
                     <div className="w-16 h-16 rounded-2xl bg-gray-50 border flex items-center justify-center overflow-hidden">
-                      {c.icon_image_path ? <img src={supabase.storage.from('icons').getPublicUrl(c.icon_image_path).data.publicUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-clinic-gold font-bold">{c.icon_name}</span>}
+                      {c.icon_image_path ? (
+                        <img src={supabase.storage.from('icons').getPublicUrl(c.icon_image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon size={24} className="text-gray-300" />
+                      )}
                     </div>
                   </td>
                   <td className="p-8 font-black text-lg text-gray-800">{c.name}</td>
-                  <td className="p-8"><span className={`px-4 py-1 rounded-full text-[10px] font-black border shadow-sm ${c.is_active ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>{c.is_active ? '顯示中' : '已隱藏'}</span></td>
                   <td className="p-8 text-right flex justify-end gap-3">
                     <button onClick={() => openModal(c)} className="p-3 border rounded-xl hover:bg-white hover:shadow-md transition-all text-gray-600"><Edit3 size={18} /></button>
                     <button onClick={async () => { if(confirm('確定要刪除？')) { await supabase.from('improvement_categories').delete().eq('id', c.id); fetchCategories(); } }} className="p-3 border rounded-xl hover:bg-red-50 text-red-500"><Trash2 size={18} /></button>
