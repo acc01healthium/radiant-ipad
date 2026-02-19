@@ -9,17 +9,16 @@ import * as LucideIcons from 'lucide-react';
 
 function ConsultationContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
+      // 移除 is_active 篩選
       const { data } = await supabase
         .from('improvement_categories')
-        .select('*')
-        .eq('is_active', true)
+        .select('id, name, icon_name, sort_order')
         .order('sort_order', { ascending: true });
       setCategories(data || []);
       setLoading(false);
@@ -39,15 +38,6 @@ function ConsultationContent() {
   };
 
   const renderIcon = (cat: any, isSelected: boolean) => {
-    // 修正點：統一圖示容器尺寸與 object-fit，iPad 下更清晰
-    if (cat.icon_image_path) {
-      const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
-      return (
-        <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-amber-100 shadow-inner bg-amber-50/30 shrink-0">
-          <img src={data.publicUrl} alt="" className="w-full h-full object-cover" />
-        </div>
-      );
-    }
     const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
     return (
       <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
@@ -59,7 +49,6 @@ function ConsultationContent() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
 
   return (
-    // 修復點：改用 min-h-[100dvh] 確保在任何設備（特別是 iPad Safari）都不會因地址欄影響佈局
     <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-x-hidden bg-pattern">
       <header className="flex items-center justify-between mb-8 z-10 shrink-0">
         <button onClick={() => router.push('/')} className="p-3 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={28} /></button>
@@ -73,7 +62,6 @@ function ConsultationContent() {
       <div className="flex-1 flex flex-col items-center justify-start max-w-7xl mx-auto w-full z-10">
         <p className="text-gray-500 mb-8 font-light tracking-wide text-center">請選擇一個或多個您感興趣的改善項目</p>
         
-        {/* 修復點：優化 Grid 響應式佈局。iPad (1024px) 會剛好顯示 4 欄 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 w-full gap-4 md:gap-6 pb-32">
           {categories.map((cat) => {
             const isSelected = selectedIds.includes(cat.id);
