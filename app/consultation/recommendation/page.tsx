@@ -1,10 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Sparkles, ArrowRight, Loader2, Info } from 'lucide-react';
+// Fixed: Added Image as LucideImage to the imports to resolve the missing name error
+import { ChevronLeft, Sparkles, ArrowRight, Loader2, Info, Image as LucideImage } from 'lucide-react';
 import Link from 'next/link';
 
 function RecommendationContent() {
@@ -23,16 +23,15 @@ function RecommendationContent() {
 
       setLoading(true);
       try {
+        // 修正：移除 is_active 濾鏡，並指定明確欄位，避免 400
         const { data, error } = await supabase
           .from('treatments')
           .select(`
-            *,
-            treatment_price_options (*),
-            treatment_cases (*),
+            id, title, description, icon_name, sort_order,
+            treatment_price_options (id, label, sessions, price, sort_order),
             treatment_improvement_categories!inner (improvement_category_id)
           `)
           .in('treatment_improvement_categories.improvement_category_id', cats)
-          .eq('is_active', true)
           .order('sort_order', { ascending: true });
 
         if (error) throw error;
@@ -75,12 +74,14 @@ function RecommendationContent() {
       ) : (
         <div className="grid grid-cols-1 gap-12 md:gap-20 max-w-7xl mx-auto w-full pb-32">
           {treatments.map((t) => {
-            // 計算最低價格時，對標正確的欄位與 table
             const cheapestOption = t.treatment_price_options?.sort((a: any, b: any) => a.price - b.price)[0];
             return (
               <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">
                 <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center p-8 border-r border-white/40">
-                  <img src={t.visual_path} alt={t.title} className="max-w-full max-h-full object-contain relative z-10" />
+                   <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
+                     <LucideImage size={80} />
+                     <span className="text-[10px] font-black">Treatment Image Reference</span>
+                   </div>
                 </div>
 
                 <div className="lg:w-[55%] p-8 md:p-12 flex flex-col">
@@ -103,27 +104,6 @@ function RecommendationContent() {
                   <p className="text-gray-500 text-lg leading-relaxed mb-8 italic font-light line-clamp-3">
                     {t.description}
                   </p>
-
-                  <div className="space-y-6 flex-1">
-                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                      <Info size={14} className="text-clinic-gold" /> 見證案例
-                    </h4>
-                    
-                    <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-                      {t.treatment_cases && t.treatment_cases.length > 0 ? (
-                        t.treatment_cases.map((c: any) => (
-                          <div key={c.id} className="min-w-[280px] bg-white rounded-3xl p-4 shadow-sm border border-gray-100 snap-start">
-                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gray-50 mb-3">
-                              <img src={c.image_path} className="w-full h-full object-cover" />
-                            </div>
-                            <h5 className="font-black text-gray-800 text-sm truncate">{c.title}</h5>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="w-full p-8 text-center text-gray-300 text-xs italic">尚無案例</div>
-                      )}
-                    </div>
-                  </div>
 
                   <div className="mt-8 pt-8 border-t border-gray-100">
                     <Link href={`/treatments/${t.id}`} className="btn-gold w-full py-5 text-lg tracking-widest uppercase font-black">

@@ -19,16 +19,20 @@ export default function TreatmentDetailPage() {
   const fetchDetail = async () => {
     setLoading(true);
     try {
+      // 修正：明確指定 select 欄位，避免包含非 DB 欄位導致 400
       const { data, error } = await supabase
         .from('treatments')
-        .select('*, treatment_price_options(*), treatment_cases(*)')
+        .select(`
+          id, title, description, icon_name, sort_order,
+          treatment_price_options (id, label, sessions, price, sort_order)
+        `)
         .eq('id', id)
         .single();
       
       if (error) throw error;
       setTreatment(data);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch Detail Error:", err);
     } finally {
       setLoading(false);
     }
@@ -40,7 +44,10 @@ export default function TreatmentDetailPage() {
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
       <div className="relative h-[45vh] w-full bg-gray-50 flex items-center justify-center p-8 overflow-hidden border-b">
-        <img src={treatment.visual_path} className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl" alt={treatment.title} />
+        <div className="text-gray-200 flex flex-col items-center gap-4">
+          <Sparkles size={120} />
+          <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
+        </div>
         <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
       </div>
 
@@ -66,7 +73,6 @@ export default function TreatmentDetailPage() {
               <div className="space-y-4">
                 {treatment.treatment_price_options?.length > 0 ? (
                   treatment.treatment_price_options.sort((a:any, b:any) => a.sort_order - b.sort_order).map((opt:any) => {
-                    // 顯示邏輯：標籤 Mapping
                     const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
                       ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
                       : opt.label;
@@ -84,27 +90,6 @@ export default function TreatmentDetailPage() {
               </div>
             </div>
           </div>
-
-          {treatment.treatment_cases?.length > 0 && (
-            <div className="mt-12 border-t pt-12">
-              <h3 className="text-xl font-black text-gray-800 mb-8 flex items-center gap-3">
-                <Camera className="text-clinic-gold" /> 術前後見證案例
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {treatment.treatment_cases.sort((a:any, b:any) => a.sort_order - b.sort_order).map((c: any) => (
-                  <div key={c.id} className="bg-white rounded-[2rem] border overflow-hidden shadow-sm group">
-                    <div className="aspect-[4/3] bg-gray-50">
-                      <img src={c.image_path} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="p-6">
-                      <h4 className="font-bold text-gray-800">{c.title}</h4>
-                      <p className="text-xs text-gray-400 mt-2 line-clamp-2">{c.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
