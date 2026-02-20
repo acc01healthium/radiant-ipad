@@ -4,16 +4,15 @@ import Link from 'next/link';
 import { Sparkles, ChevronRight, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-// 強制動態渲染，確保獲取最新資料庫內容
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function HomePage() {
-  // 1. 同時獲取診所設定、系統文字與分類資料
+  // 1. 同時獲取診所設定、系統文字與分類資料 (移除 is_active)
   const [settingsRes, textsRes, categoriesRes] = await Promise.all([
     supabase.from('settings').select('logo_url, clinic_name, updated_at').eq('id', 'clinic_main').single(),
     supabase.from('system_texts').select('key, value'),
-    supabase.from('improvement_categories').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+    supabase.from('improvement_categories').select('*').order('sort_order', { ascending: true })
   ]);
 
   const settings = settingsRes.data;
@@ -21,10 +20,9 @@ export default async function HomePage() {
     acc[curr.key] = curr.value;
     return acc;
   }, {});
-  const categories = categoriesRes.data || [];
-
-  const logoUrl = settings?.logo_url;
+  
   const clinicName = systemTexts['home_title'] || settings?.clinic_name || '亮立美學';
+  const logoUrl = settings?.logo_url;
   const version = settings?.updated_at ? new Date(settings.updated_at).getTime() : Date.now();
 
   return (
@@ -49,7 +47,7 @@ export default async function HomePage() {
             </div>
           </div>
           
-          <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all uppercase">
+          <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all uppercase text-center">
             {clinicName}
           </h1>
           <div className="flex items-center justify-center gap-4 text-clinic-gold tracking-widest uppercase text-sm font-medium opacity-60">
