@@ -66,7 +66,6 @@ export default function TreatmentListPage() {
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [caseTitle, setCaseTitle] = useState('');
   const [caseDescription, setCaseDescription] = useState('');
-  const [caseDoctorName, setCaseDoctorName] = useState('');
   const [caseImageFile, setCaseImageFile] = useState<File | null>(null);
   const [caseImagePreview, setCaseImagePreview] = useState<string | null>(null);
   const [caseExistingImagePath, setCaseExistingImagePath] = useState<string | null>(null);
@@ -217,19 +216,37 @@ export default function TreatmentListPage() {
       setEditingCaseId(c.id);
       setCaseTitle(c.title || '');
       setCaseDescription(c.description || '');
-      setCaseDoctorName(c.doctor_name || '');
       setCaseImagePreview(c.image_url || null);
       setCaseExistingImagePath(c.image_url || null);
     } else {
       setEditingCaseId(null);
       setCaseTitle('');
       setCaseDescription('');
-      setCaseDoctorName('');
       setCaseImagePreview(null);
       setCaseExistingImagePath(null);
     }
     setCaseImageFile(null);
     setIsCaseModalOpen(true);
+  };
+
+  const handleDeleteCase = async (id: string) => {
+    if (!confirm('確定要刪除此案例？此動作無法復原。')) return;
+    try {
+      // 1. 刪除關聯
+      await Promise.allSettled([
+        supabase.from('case_treatments').delete().eq('case_id', id),
+        supabase.from('treatment_cases').delete().eq('case_id', id)
+      ]);
+      // 2. 刪除案例
+      const { error } = await supabase.from('cases').delete().eq('id', id);
+      if (error) throw error;
+      
+      setIsCaseModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Delete Case Error:", err);
+      alert("刪除失敗: " + err.message);
+    }
   };
 
   const handleCaseSubmit = async (e: React.FormEvent) => {
@@ -240,36 +257,59 @@ export default function TreatmentListPage() {
       let finalImageUrl = caseExistingImagePath;
 
       if (caseImageFile) {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const fileName = `case-${Date.now()}.webp`;
         const path = `cases/${fileName}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseImageFile, { contentType: 'image/webp' });
-        if (uploadErr) throw uploadErr;
+        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseImageFile, { contentType: 'image/webp', upsert: true });
+        
+        if (uploadErr) {
+          console.error("Upload Error Details:", uploadErr);
+          // 如果是 54001，可能是 DB Trigger 限制，提示用戶但嘗試繼續
+          if ((uploadErr as any).code === '54001') {
+            throw new Error("資料庫儲存空間異常 (54001)，請聯繫管理員或稍後再試。");
+          }
+          throw uploadErr;
+        }
         
         const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
         finalImageUrl = publicUrlData.publicUrl;
       }
 
-      const casePayload = {
+      const casePayload: any = {
         title: caseTitle.trim(),
         description: caseDescription.trim(),
-        doctor_name: caseDoctorName.trim(),
         image_url: finalImageUrl,
       };
 
       if (editingCaseId) {
-        const { error } = await supabase.from('cases').update(casePayload).eq('id', editingCaseId);
-        if (error) throw error;
+        // 檢查變動
+        const current = allCases.find(c => c.id === editingCaseId);
+        const hasChanged = !current || (
+          current.title !== casePayload.title ||
+          current.description !== casePayload.description ||
+          current.image_url !== casePayload.image_url
+        );
+
+        if (hasChanged) {
+          // 嘗試使用 upsert 或是 update
+          const { error } = await supabase.from('cases').upsert({ id: editingCaseId, ...casePayload });
+          if (error) {
+            console.error("Case Update Error:", error);
+            if ((error as any).code === '54001') {
+              throw new Error("資料庫遞迴更新異常 (54001)，請檢查資料庫 Trigger 設定。");
+            }
+            throw error;
+          }
+        }
       } else {
         const { data, error } = await supabase.from('cases').insert([casePayload]).select('id').single();
         if (error) throw error;
-        // 如果是新建立的案例，自動勾選
         if (data) {
           setSelectedCaseIds(prev => [...prev, data.id]);
         }
       }
 
       setIsCaseModalOpen(false);
-      fetchData(); // 重新整理案例清單
+      fetchData(); 
     } catch (err: any) {
       console.error("Case Submit Error:", err);
       alert("案例儲存失敗: " + (err.message || "未知錯誤"));
@@ -286,10 +326,17 @@ export default function TreatmentListPage() {
       let finalImageUrl = existingImagePath;
 
       if (imageFile) {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const fileName = `treatment-${Date.now()}.webp`;
         const path = `treatments/${fileName}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp' });
-        if (uploadErr) throw uploadErr;
+        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp', upsert: true });
+        
+        if (uploadErr) {
+          console.error("Treatment Image Upload Error:", uploadErr);
+          if ((uploadErr as any).code === '54001') {
+            throw new Error("資料庫儲存空間異常 (54001)，請聯繫管理員。");
+          }
+          throw uploadErr;
+        }
         
         const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
         finalImageUrl = publicUrlData.publicUrl;
@@ -662,8 +709,8 @@ export default function TreatmentListPage() {
                         >
                           <div onClick={() => toggleCase(c.id)} className="absolute inset-0 z-0 cursor-pointer"></div>
                           <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border relative z-10">
-                            {c.image_url ? (
-                              <img src={c.image_url} className="w-full h-full object-cover" alt="" />
+                            {(c.image_url || c.image_path) ? (
+                              <img src={c.image_url || c.image_path} className="w-full h-full object-cover" alt="" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-gray-300">
                                 <LucideIcons.Image size={24} />
@@ -673,9 +720,6 @@ export default function TreatmentListPage() {
                           <div className="flex-1 min-w-0 relative z-10">
                             <div className={`text-sm font-black truncate ${selectedCaseIds.includes(c.id) ? 'text-clinic-gold' : 'text-gray-700'}`}>
                               {c.title}
-                            </div>
-                            <div className="text-[10px] text-gray-400 font-bold truncate">
-                              {c.doctor_name ? `執刀：${c.doctor_name}` : '未註明醫師'}
                             </div>
                             <button 
                               type="button" 
@@ -723,10 +767,6 @@ export default function TreatmentListPage() {
                     <input required value={caseTitle} onChange={e => setCaseTitle(e.target.value)} className="input-field font-bold" placeholder="例如：皮秒雷射見證" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">執刀醫師</label>
-                    <input value={caseDoctorName} onChange={e => setCaseDoctorName(e.target.value)} className="input-field font-bold" placeholder="例如：張院長" />
-                  </div>
-                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">案例描述</label>
                     <textarea value={caseDescription} onChange={e => setCaseDescription(e.target.value)} className="input-field h-32 resize-none text-sm" placeholder="描述案例的改善情況..." />
                   </div>
@@ -764,6 +804,11 @@ export default function TreatmentListPage() {
               </div>
 
               <div className="pt-4 flex gap-4">
+                {editingCaseId && (
+                  <button type="button" onClick={() => handleDeleteCase(editingCaseId)} className="p-4 border-2 border-red-100 text-red-400 rounded-2xl hover:bg-red-50 transition-all">
+                    <Trash2 size={24} />
+                  </button>
+                )}
                 <button type="button" onClick={() => setIsCaseModalOpen(false)} className="flex-1 py-4 border-2 rounded-2xl font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all">取消</button>
                 <button type="submit" disabled={savingCase} className="flex-[2] py-4 bg-clinic-gold text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-clinic-gold/30 flex items-center justify-center gap-2">
                   {savingCase ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}

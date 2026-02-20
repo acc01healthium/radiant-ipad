@@ -160,8 +160,8 @@ export default function TreatmentDetailPage() {
             {treatment.cases.map((c: any) => (
               <div key={c.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border group hover:shadow-2xl transition-all">
                 <div className="aspect-[4/3] overflow-hidden bg-gray-100">
-                  {c.image_url ? (
-                    <img src={c.image_url} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  {(c.image_url || c.image_path) ? (
+                    <img src={c.image_url || c.image_path} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-200">
                       <LucideImage size={64} />
@@ -171,12 +171,6 @@ export default function TreatmentDetailPage() {
                 <div className="p-8">
                   <h3 className="text-xl font-black text-gray-800 mb-2 truncate">{c.title}</h3>
                   <p className="text-gray-500 text-sm line-clamp-2 font-medium italic">{c.description}</p>
-                  {c.doctor_name && (
-                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">執刀醫師</span>
-                      <span className="text-clinic-gold font-bold">{c.doctor_name}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
