@@ -23,9 +23,20 @@ function ConsultationContent() {
     if (error) {
       console.error('fetchCategories error:', error.message);
       setCategories([]);
-    } else {
-      setCategories(data || []);
+      setLoading(false);
+      return;
     }
+
+    // ✅ 加在這裡（setCategories 前）
+    console.log("improvement_categories first row:", data?.[0]);
+    console.log(
+      "icon_image_url:",
+      (data?.[0] as any)?.icon_image_url,
+      "icon_image_path:",
+      (data?.[0] as any)?.icon_image_path
+    );
+
+    setCategories(data || []);
     setLoading(false);
   };
 
