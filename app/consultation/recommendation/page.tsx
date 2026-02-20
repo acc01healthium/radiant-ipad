@@ -53,7 +53,7 @@ function RecommendationContent() {
         const { data, error } = await supabase
           .from('treatments')
           .select(`
-            id, title, description, icon_name, sort_order,
+            id, title, description, icon_name, image_url, sort_order,
             treatment_price_options (id, label, sessions, price, sort_order)
           `)
           .in('id', treatmentIds)
@@ -100,9 +100,9 @@ function RecommendationContent() {
         <div className="grid grid-cols-1 gap-12 md:gap-20 max-w-7xl mx-auto w-full pb-32">
           {treatments.map((t) => {
             const cheapestOption = t.treatment_price_options?.sort((a: any, b: any) => a.price - b.price)[0];
-            const imageUrl = t.icon_name && t.icon_name.includes('/') 
+            const imageUrl = t.image_url || (t.icon_name && t.icon_name.includes('/') 
               ? supabase.storage.from('icons').getPublicUrl(t.icon_name).data.publicUrl 
-              : null;
+              : null);
 
             return (
               <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">

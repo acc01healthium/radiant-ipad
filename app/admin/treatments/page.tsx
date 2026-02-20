@@ -87,29 +87,34 @@ export default function TreatmentListPage() {
           description, 
           sort_order,
           icon_name,
+          image_url,
           treatment_price_options (id, label, sessions, price, sort_order)
         `)
         .order('sort_order', { ascending: true });
 
       if (tError) throw tError;
 
-      // 2. 抓取關聯 (優先嘗試 treatment_categories)
+      // 2. 抓取關聯 (嘗試多個可能的表名)
       let relations: any[] = [];
+      
+      // 嘗試 treatment_improvement_categories
       const { data: relData1, error: relErr1 } = await supabase
-        .from('treatment_categories')
-        .select('treatment_id, category_id');
+        .from('treatment_improvement_categories')
+        .select('treatment_id, improvement_category_id');
       
       if (!relErr1 && relData1) {
-        relations = relData1.map(r => ({ 
-          treatment_id: r.treatment_id, 
-          improvement_category_id: r.category_id 
-        }));
+        relations = relData1;
       } else {
-        // 備案：嘗試 treatment_improvement_categories
+        // 嘗試 treatment_categories
         const { data: relData2 } = await supabase
-          .from('treatment_improvement_categories')
-          .select('treatment_id, improvement_category_id');
-        if (relData2) relations = relData2;
+          .from('treatment_categories')
+          .select('treatment_id, category_id');
+        if (relData2) {
+          relations = relData2.map(r => ({
+            treatment_id: r.treatment_id,
+            improvement_category_id: r.category_id
+          }));
+        }
       }
 
       const finalTData = (tData || []).map(t => ({
@@ -129,7 +134,6 @@ export default function TreatmentListPage() {
       setCategories(cData || []);
     } catch (err: any) {
       console.error("Fetch Data Error:", err.message);
-      // 即使失敗也嘗試顯示基礎療程資料
       const { data: basic } = await supabase.from('treatments').select('*');
       if (basic) setTreatments(basic);
     } finally {
@@ -148,7 +152,7 @@ export default function TreatmentListPage() {
     if (saving) return;
     setSaving(true);
     try {
-      let finalIconName = existingImagePath || iconName;
+      let finalImageUrl = existingImagePath;
 
       // 處理圖片上傳
       if (imageFile) {
@@ -156,14 +160,17 @@ export default function TreatmentListPage() {
         const path = `treatments/${fileName}`;
         const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp' });
         if (uploadErr) throw uploadErr;
-        finalIconName = uploadData.path;
+        
+        const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
+        finalImageUrl = publicUrlData.publicUrl;
       }
 
       const treatmentPayload = {
         title,
         description,
         sort_order: sortOrder,
-        icon_name: finalIconName
+        image_url: finalImageUrl,
+        updated_at: new Date().toISOString()
       };
       
       let treatmentId = editingId;
@@ -187,12 +194,10 @@ export default function TreatmentListPage() {
 
       if (!treatmentId) throw new Error("無法取得療程 ID");
 
-      // 第二步：同步價格方案
+      // 第二步：同步價格方案 (使用 Promise.allSettled 避免中斷)
       try {
-        // 先刪除舊的
         await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
         
-        // 新增新的
         if (priceOptions.length > 0) {
           const optionsToInsert = priceOptions.map((opt, idx) => ({
             treatment_id: treatmentId,
@@ -201,36 +206,34 @@ export default function TreatmentListPage() {
             sessions: Number(opt.sessions) || 1,
             sort_order: idx
           }));
-          const { error: pErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
-          if (pErr) console.error("Price options insert error:", pErr);
+          await supabase.from('treatment_price_options').insert(optionsToInsert);
         }
       } catch (pErr) {
         console.error("Price options sync error:", pErr);
       }
 
-      // 第三步：同步改善項目關聯
+      // 第三步：同步改善項目關聯 (使用 Promise.allSettled 避免中斷)
       try {
-        // 同時嘗試刪除兩個可能的關聯表
         await Promise.allSettled([
           supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
           supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
         ]);
         
         if (selectedCategoryIds.length > 0) {
-          // 嘗試寫入 treatment_categories
-          const relations1 = selectedCategoryIds.map(cid => ({
+          // 嘗試寫入 treatment_improvement_categories
+          const relations2 = selectedCategoryIds.map(cid => ({
             treatment_id: treatmentId,
-            category_id: cid
+            improvement_category_id: cid
           }));
-          const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
+          const { error: err2 } = await supabase.from('treatment_improvement_categories').insert(relations2);
           
-          // 如果失敗，嘗試寫入 treatment_improvement_categories
-          if (err1) {
-            const relations2 = selectedCategoryIds.map(cid => ({
+          // 如果失敗，嘗試寫入 treatment_categories
+          if (err2) {
+            const relations1 = selectedCategoryIds.map(cid => ({
               treatment_id: treatmentId,
-              improvement_category_id: cid
+              category_id: cid
             }));
-            await supabase.from('treatment_improvement_categories').insert(relations2);
+            await supabase.from('treatment_categories').insert(relations1);
           }
         }
       } catch (cErr) {
@@ -283,7 +286,10 @@ export default function TreatmentListPage() {
       }));
       setPriceOptions(mappedOptions.length > 0 ? mappedOptions : [{ label: '', sessions: 1, price: 0 }]);
 
-      if (t.icon_name && t.icon_name.includes('/')) {
+      if (t.image_url) {
+        setExistingImagePath(t.image_url);
+        setImagePreview(t.image_url);
+      } else if (t.icon_name && t.icon_name.includes('/')) {
         setExistingImagePath(t.icon_name);
         const { data } = supabase.storage.from('icons').getPublicUrl(t.icon_name);
         setImagePreview(data.publicUrl);
@@ -334,7 +340,9 @@ export default function TreatmentListPage() {
                   <td className="p-8 font-mono text-gray-400 font-bold">{t.sort_order}</td>
                   <td className="p-8">
                     <div className="w-16 h-12 bg-gray-50 rounded-xl overflow-hidden border flex items-center justify-center">
-                       {t.icon_name && t.icon_name.includes('/') ? (
+                       {t.image_url ? (
+                         <img src={t.image_url} className="w-full h-full object-cover" alt="" />
+                       ) : t.icon_name && t.icon_name.includes('/') ? (
                          <img src={supabase.storage.from('icons').getPublicUrl(t.icon_name).data.publicUrl} className="w-full h-full object-cover" alt="" />
                        ) : (
                          <Sparkles size={24} className="text-clinic-gold" />

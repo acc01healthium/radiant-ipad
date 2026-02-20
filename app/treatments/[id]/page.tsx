@@ -23,7 +23,7 @@ export default function TreatmentDetailPage() {
       const { data, error } = await supabase
         .from('treatments')
         .select(`
-          id, title, description, icon_name, sort_order,
+          id, title, description, icon_name, image_url, sort_order,
           treatment_price_options (id, label, sessions, price, sort_order)
         `)
         .eq('id', id)
@@ -41,9 +41,9 @@ export default function TreatmentDetailPage() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
   if (!treatment) return <div className="p-20 text-center">療程不存在</div>;
 
-  const imageUrl = treatment.icon_name && treatment.icon_name.includes('/') 
+  const imageUrl = treatment.image_url || (treatment.icon_name && treatment.icon_name.includes('/') 
     ? supabase.storage.from('icons').getPublicUrl(treatment.icon_name).data.publicUrl 
-    : null;
+    : null);
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
