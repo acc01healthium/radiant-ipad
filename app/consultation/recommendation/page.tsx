@@ -23,15 +23,40 @@ function RecommendationContent() {
 
       setLoading(true);
       try {
-        // 修正：移除 is_active 濾鏡，並指定明確欄位，避免 400
+        // 1. 先找出符合分類的療程 ID (嘗試多個可能的關聯表)
+        let treatmentIds: string[] = [];
+        
+        // 嘗試 treatment_categories
+        const { data: rels1 } = await supabase
+          .from('treatment_categories')
+          .select('treatment_id')
+          .in('category_id', cats);
+        
+        if (rels1 && rels1.length > 0) {
+          treatmentIds = rels1.map(r => r.treatment_id);
+        } else {
+          // 嘗試 treatment_improvement_categories
+          const { data: rels2 } = await supabase
+            .from('treatment_improvement_categories')
+            .select('treatment_id')
+            .in('improvement_category_id', cats);
+          if (rels2) treatmentIds = rels2.map(r => r.treatment_id);
+        }
+
+        if (treatmentIds.length === 0) {
+          setTreatments([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. 抓取療程詳情
         const { data, error } = await supabase
           .from('treatments')
           .select(`
             id, title, description, icon_name, sort_order,
-            treatment_price_options (id, label, sessions, price, sort_order),
-            treatment_improvement_categories!inner (improvement_category_id)
+            treatment_price_options (id, label, sessions, price, sort_order)
           `)
-          .in('treatment_improvement_categories.improvement_category_id', cats)
+          .in('id', treatmentIds)
           .order('sort_order', { ascending: true });
 
         if (error) throw error;

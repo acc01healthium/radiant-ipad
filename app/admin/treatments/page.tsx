@@ -30,7 +30,7 @@ export default function TreatmentListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. 抓取療程清單（含關聯）
+      // 1. 抓取療程清單
       const { data: tData, error: tError } = await supabase
         .from('treatments')
         .select(`
@@ -38,14 +38,38 @@ export default function TreatmentListPage() {
           title, 
           description, 
           sort_order,
-          treatment_price_options (id, label, sessions, price, sort_order),
-          treatment_improvement_categories (improvement_category_id)
+          icon_name,
+          treatment_price_options (id, label, sessions, price, sort_order)
         `)
         .order('sort_order', { ascending: true });
 
       if (tError) throw tError;
 
-      // 2. 抓取改善項目清單
+      // 2. 抓取關聯 (優先嘗試 treatment_categories)
+      let relations: any[] = [];
+      const { data: relData1, error: relErr1 } = await supabase
+        .from('treatment_categories')
+        .select('treatment_id, category_id');
+      
+      if (!relErr1 && relData1) {
+        relations = relData1.map(r => ({ 
+          treatment_id: r.treatment_id, 
+          improvement_category_id: r.category_id 
+        }));
+      } else {
+        // 備案：嘗試 treatment_improvement_categories
+        const { data: relData2 } = await supabase
+          .from('treatment_improvement_categories')
+          .select('treatment_id, improvement_category_id');
+        if (relData2) relations = relData2;
+      }
+
+      const finalTData = (tData || []).map(t => ({
+        ...t,
+        treatment_improvement_categories: relations.filter(r => r.treatment_id === t.id)
+      }));
+
+      // 3. 抓取改善項目清單
       const { data: cData, error: cError } = await supabase
         .from('improvement_categories')
         .select('id, name')
@@ -53,10 +77,13 @@ export default function TreatmentListPage() {
 
       if (cError) throw cError;
 
-      setTreatments(tData || []);
+      setTreatments(finalTData);
       setCategories(cData || []);
     } catch (err: any) {
       console.error("Fetch Data Error:", err.message);
+      // 即使失敗也嘗試顯示基礎療程資料
+      const { data: basic } = await supabase.from('treatments').select('*');
+      if (basic) setTreatments(basic);
     } finally {
       setLoading(false);
     }
@@ -118,15 +145,28 @@ export default function TreatmentListPage() {
       }
 
       // 第三步：同步改善項目關聯
-      await supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId);
+      // 同時嘗試刪除兩個可能的關聯表
+      await Promise.all([
+        supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
+        supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
+      ]);
       
       if (selectedCategoryIds.length > 0) {
-        const relationsToInsert = selectedCategoryIds.map(cid => ({
+        // 優先寫入 treatment_categories
+        const relations1 = selectedCategoryIds.map(cid => ({
           treatment_id: treatmentId,
-          improvement_category_id: cid
+          category_id: cid
         }));
-        const { error: cErr } = await supabase.from('treatment_improvement_categories').insert(relationsToInsert);
-        if (cErr) throw cErr;
+        const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
+        
+        // 如果失敗，嘗試寫入 treatment_improvement_categories
+        if (err1) {
+          const relations2 = selectedCategoryIds.map(cid => ({
+            treatment_id: treatmentId,
+            improvement_category_id: cid
+          }));
+          await supabase.from('treatment_improvement_categories').insert(relations2);
+        }
       }
 
       setIsModalOpen(false);
