@@ -100,13 +100,21 @@ function RecommendationContent() {
         <div className="grid grid-cols-1 gap-12 md:gap-20 max-w-7xl mx-auto w-full pb-32">
           {treatments.map((t) => {
             const cheapestOption = t.treatment_price_options?.sort((a: any, b: any) => a.price - b.price)[0];
+            const imageUrl = t.icon_name && t.icon_name.includes('/') 
+              ? supabase.storage.from('icons').getPublicUrl(t.icon_name).data.publicUrl 
+              : null;
+
             return (
               <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">
-                <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center p-8 border-r border-white/40">
-                   <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
-                     <LucideImage size={80} />
-                     <span className="text-[10px] font-black">Treatment Image Reference</span>
-                   </div>
+                <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center overflow-hidden border-r border-white/40">
+                   {imageUrl ? (
+                     <img src={imageUrl} alt={t.title} className="w-full h-full object-cover" />
+                   ) : (
+                     <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
+                       <LucideImage size={80} />
+                       <span className="text-[10px] font-black">Treatment Image Reference</span>
+                     </div>
+                   )}
                 </div>
 
                 <div className="lg:w-[55%] p-8 md:p-12 flex flex-col">

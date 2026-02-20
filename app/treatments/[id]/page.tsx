@@ -41,13 +41,21 @@ export default function TreatmentDetailPage() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
   if (!treatment) return <div className="p-20 text-center">療程不存在</div>;
 
+  const imageUrl = treatment.icon_name && treatment.icon_name.includes('/') 
+    ? supabase.storage.from('icons').getPublicUrl(treatment.icon_name).data.publicUrl 
+    : null;
+
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative h-[45vh] w-full bg-gray-50 flex items-center justify-center p-8 overflow-hidden border-b">
-        <div className="text-gray-200 flex flex-col items-center gap-4">
-          <Sparkles size={120} />
-          <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
-        </div>
+      <div className="relative h-[45vh] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
+        {imageUrl ? (
+          <img src={imageUrl} alt={treatment.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="text-gray-200 flex flex-col items-center gap-4">
+            <Sparkles size={120} />
+            <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
+          </div>
+        )}
         <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
       </div>
 

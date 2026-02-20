@@ -1,13 +1,48 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Plus, Trash2, Edit3, X, Loader2, Save, 
-  Layers, PlusCircle, Image as LucideImage, Sparkles 
+  Layers, PlusCircle, Image as LucideImage, Sparkles,
+  UploadCloud
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import Cropper from 'react-easy-crop';
+
+// 圖片處理工具函數
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<Blob> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No 2d context');
+  canvas.width = 800;
+  canvas.height = 600; // 療程圖片建議 4:3 或 16:9，這裡用 4:3
+  ctx.drawImage(
+    image,
+    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+    0, 0, 800, 600
+  );
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { reject(new Error('Canvas is empty')); return; }
+      resolve(blob);
+    }, 'image/webp', 0.9);
+  });
+}
 
 export default function TreatmentListPage() {
   const [treatments, setTreatments] = useState<any[]>([]);
@@ -22,6 +57,19 @@ export default function TreatmentListPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [priceOptions, setPriceOptions] = useState<any[]>([]);
+  const [iconName, setIconName] = useState('Sparkles');
+
+  // 圖片相關
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImagePath, setExistingImagePath] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showCropper, setShowCropper] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -100,10 +148,22 @@ export default function TreatmentListPage() {
     if (saving) return;
     setSaving(true);
     try {
+      let finalIconName = existingImagePath || iconName;
+
+      // 處理圖片上傳
+      if (imageFile) {
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const path = `treatments/${fileName}`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp' });
+        if (uploadErr) throw uploadErr;
+        finalIconName = uploadData.path;
+      }
+
       const treatmentPayload = {
         title,
         description,
-        sort_order: sortOrder
+        sort_order: sortOrder,
+        icon_name: finalIconName
       };
       
       let treatmentId = editingId;
@@ -128,45 +188,53 @@ export default function TreatmentListPage() {
       if (!treatmentId) throw new Error("無法取得療程 ID");
 
       // 第二步：同步價格方案
-      // 先刪除舊的
-      await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
-      
-      // 新增新的
-      if (priceOptions.length > 0) {
-        const optionsToInsert = priceOptions.map((opt, idx) => ({
-          treatment_id: treatmentId,
-          label: opt.label || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
-          price: Number(opt.price) || 0,
-          sessions: Number(opt.sessions) || 1,
-          sort_order: idx
-        }));
-        const { error: pErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
-        if (pErr) throw pErr;
+      try {
+        // 先刪除舊的
+        await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
+        
+        // 新增新的
+        if (priceOptions.length > 0) {
+          const optionsToInsert = priceOptions.map((opt, idx) => ({
+            treatment_id: treatmentId,
+            label: opt.label || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
+            price: Number(opt.price) || 0,
+            sessions: Number(opt.sessions) || 1,
+            sort_order: idx
+          }));
+          const { error: pErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
+          if (pErr) console.error("Price options insert error:", pErr);
+        }
+      } catch (pErr) {
+        console.error("Price options sync error:", pErr);
       }
 
       // 第三步：同步改善項目關聯
-      // 同時嘗試刪除兩個可能的關聯表
-      await Promise.all([
-        supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
-        supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
-      ]);
-      
-      if (selectedCategoryIds.length > 0) {
-        // 優先寫入 treatment_categories
-        const relations1 = selectedCategoryIds.map(cid => ({
-          treatment_id: treatmentId,
-          category_id: cid
-        }));
-        const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
+      try {
+        // 同時嘗試刪除兩個可能的關聯表
+        await Promise.allSettled([
+          supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
+          supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
+        ]);
         
-        // 如果失敗，嘗試寫入 treatment_improvement_categories
-        if (err1) {
-          const relations2 = selectedCategoryIds.map(cid => ({
+        if (selectedCategoryIds.length > 0) {
+          // 嘗試寫入 treatment_categories
+          const relations1 = selectedCategoryIds.map(cid => ({
             treatment_id: treatmentId,
-            improvement_category_id: cid
+            category_id: cid
           }));
-          await supabase.from('treatment_improvement_categories').insert(relations2);
+          const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
+          
+          // 如果失敗，嘗試寫入 treatment_improvement_categories
+          if (err1) {
+            const relations2 = selectedCategoryIds.map(cid => ({
+              treatment_id: treatmentId,
+              improvement_category_id: cid
+            }));
+            await supabase.from('treatment_improvement_categories').insert(relations2);
+          }
         }
+      } catch (cErr) {
+        console.error("Categories sync error:", cErr);
       }
 
       setIsModalOpen(false);
@@ -179,12 +247,32 @@ export default function TreatmentListPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => { setCropImageSrc(reader.result as string); setShowCropper(true); };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => { setCroppedAreaPixels(croppedAreaPixels); }, []);
+
+  const handleCropSave = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+    const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+    setImageFile(new File([croppedBlob], "treatment.webp", { type: "image/webp" }));
+    setImagePreview(URL.createObjectURL(croppedBlob));
+    setShowCropper(false);
+  };
+
   const openModal = (t?: any) => {
     if (t) {
       setEditingId(t.id);
       setTitle(t.title || '');
       setDescription(t.description || '');
       setSortOrder(t.sort_order || 0);
+      setIconName(t.icon_name || 'Sparkles');
       
       const categoryIds = t.treatment_improvement_categories?.map((rel: any) => rel.improvement_category_id) || [];
       setSelectedCategoryIds(categoryIds);
@@ -194,6 +282,15 @@ export default function TreatmentListPage() {
         label: opt.label === 'EMPTY' ? '' : opt.label
       }));
       setPriceOptions(mappedOptions.length > 0 ? mappedOptions : [{ label: '', sessions: 1, price: 0 }]);
+
+      if (t.icon_name && t.icon_name.includes('/')) {
+        setExistingImagePath(t.icon_name);
+        const { data } = supabase.storage.from('icons').getPublicUrl(t.icon_name);
+        setImagePreview(data.publicUrl);
+      } else {
+        setExistingImagePath(null);
+        setImagePreview(null);
+      }
     } else {
       setEditingId(null);
       setTitle('');
@@ -201,7 +298,11 @@ export default function TreatmentListPage() {
       setSortOrder(treatments.length + 1);
       setSelectedCategoryIds([]);
       setPriceOptions([{ label: '', sessions: 1, price: 0 }]);
+      setIconName('Sparkles');
+      setExistingImagePath(null);
+      setImagePreview(null);
     }
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -232,8 +333,12 @@ export default function TreatmentListPage() {
                 <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="p-8 font-mono text-gray-400 font-bold">{t.sort_order}</td>
                   <td className="p-8">
-                    <div className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden border flex items-center justify-center">
-                       <Sparkles size={24} className="text-clinic-gold" />
+                    <div className="w-16 h-12 bg-gray-50 rounded-xl overflow-hidden border flex items-center justify-center">
+                       {t.icon_name && t.icon_name.includes('/') ? (
+                         <img src={supabase.storage.from('icons').getPublicUrl(t.icon_name).data.publicUrl} className="w-full h-full object-cover" alt="" />
+                       ) : (
+                         <Sparkles size={24} className="text-clinic-gold" />
+                       )}
                     </div>
                   </td>
                   <td className="p-8">
@@ -263,7 +368,7 @@ export default function TreatmentListPage() {
             </div>
             
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-12">
-               <section className="grid grid-cols-1 gap-12">
+               <section className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">療程名稱</label>
@@ -292,6 +397,15 @@ export default function TreatmentListPage() {
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-4 flex flex-col items-center">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest w-full">療程封面圖片 (建議 4:3)</label>
+                    <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[4/3] bg-gray-50 border-4 border-dashed rounded-[2.5rem] flex flex-col items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 transition-all shadow-inner">
+                       {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" alt="" /> : <UploadCloud size={64} className="text-gray-200" />}
+                       <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                    </div>
+                    <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">點擊上傳或更換圖片</p>
                   </div>
                </section>
 
@@ -330,6 +444,17 @@ export default function TreatmentListPage() {
                </button>
             </div>
           </div>
+        </div>
+      )}
+      {showCropper && cropImageSrc && (
+        <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center p-12">
+           <div className="w-full max-w-3xl aspect-[4/3] relative bg-gray-900 rounded-3xl overflow-hidden shadow-2xl">
+              <Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={4 / 3} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+           </div>
+           <div className="w-full max-w-3xl mt-8 flex gap-4">
+              <button onClick={() => setShowCropper(false)} className="flex-1 py-5 bg-white/10 text-white rounded-2xl font-bold">取消</button>
+              <button onClick={handleCropSave} className="flex-[2] py-5 bg-clinic-gold text-white rounded-2xl font-black text-xl">完成裁切</button>
+           </div>
         </div>
       )}
     </div>
