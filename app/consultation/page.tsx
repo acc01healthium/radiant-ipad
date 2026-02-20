@@ -44,13 +44,20 @@ function ConsultationContent() {
   };
 
   const renderIcon = (cat: any, isSelected: boolean) => {
-    const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
-    return (
-      <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
-        <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
-      </div>
-    );
-  };
+   const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
+return (
+  <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
+    {cat.icon_image_url ? (
+      <img
+        src={cat.icon_image_url}
+        alt={cat.name}
+        className="w-full h-full object-cover rounded-full"
+      />
+    ) : (
+      <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
+    )}
+  </div>
+);
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
 
