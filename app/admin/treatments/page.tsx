@@ -118,11 +118,20 @@ export default function TreatmentListPage() {
         console.error("Fetch relations error:", relErr);
       }
 
-      const finalTData = (tData || []).map(t => ({
-        ...t,
-        treatment_price_options: (pData || []).filter(p => p.treatment_id === t.id),
-        treatment_improvement_categories: relations.filter(r => r.treatment_id === t.id)
-      }));
+      const finalTData = (tData || []).map(t => {
+        const tRelations = relations.filter(r => r.treatment_id === t.id);
+        const tCategories = tRelations.map(r => {
+          const cat = (cData || []).find(c => c.id === r.improvement_category_id);
+          return cat ? cat.name : null;
+        }).filter(Boolean);
+
+        return {
+          ...t,
+          treatment_price_options: (pData || []).filter(p => p.treatment_id === t.id),
+          treatment_improvement_categories: tRelations,
+          category_names: tCategories
+        };
+      });
 
       // 4. 抓取改善項目清單
       const { data: cData, error: cError } = await supabase
@@ -167,12 +176,12 @@ export default function TreatmentListPage() {
         finalImageUrl = publicUrlData.publicUrl;
       }
 
-      const treatmentPayload = {
-        title,
-        description,
-        sort_order: sortOrder,
+      // 移除 updated_at 以避免觸發資料庫遞迴更新錯誤 (stack depth limit exceeded)
+      const treatmentPayload: any = {
+        title: title.trim(),
+        description: description.trim(),
+        sort_order: Number(sortOrder),
         image_url: finalImageUrl,
-        updated_at: new Date().toISOString()
       };
       
       let treatmentId = editingId;
@@ -198,53 +207,52 @@ export default function TreatmentListPage() {
 
       // 第二步：同步價格方案
       try {
-        const { error: delPriceErr } = await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
-        if (delPriceErr) console.error("Delete prices error:", delPriceErr);
+        // 先刪除
+        await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
         
-        if (priceOptions.length > 0) {
-          const optionsToInsert = priceOptions.map((opt, idx) => ({
+        // 過濾掉空的方案
+        const validOptions = priceOptions.filter(opt => opt.price > 0 || (opt.label && opt.label.trim() !== ''));
+        
+        if (validOptions.length > 0) {
+          const optionsToInsert = validOptions.map((opt, idx) => ({
             treatment_id: treatmentId,
-            label: opt.label || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
+            label: opt.label?.trim() || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
             price: Number(opt.price) || 0,
             sessions: Number(opt.sessions) || 1,
             sort_order: idx
           }));
           const { error: insPriceErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
-          if (insPriceErr) {
-            console.error("Insert prices error:", insPriceErr);
-            throw insPriceErr;
-          }
+          if (insPriceErr) throw insPriceErr;
         }
       } catch (pErr) {
         console.error("Price options sync error:", pErr);
-        // 價格儲存失敗不一定要中斷整個流程，但這裡我們選擇拋出以便讓使用者知道
-        throw pErr;
+        throw new Error("價格方案儲存失敗，請檢查資料格式");
       }
 
       // 第三步：同步改善項目關聯
       try {
+        // 刪除舊關聯
         await Promise.allSettled([
           supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
           supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
         ]);
         
         if (selectedCategoryIds.length > 0) {
-          // 嘗試寫入 treatment_improvement_categories
-          const relations2 = selectedCategoryIds.map(cid => ({
+          // 嘗試寫入新關聯 (優先寫入 treatment_improvement_categories)
+          const relations = selectedCategoryIds.map(cid => ({
             treatment_id: treatmentId,
             improvement_category_id: cid
           }));
-          const { error: err2 } = await supabase.from('treatment_improvement_categories').insert(relations2);
           
-          // 如果失敗，嘗試寫入 treatment_categories
-          if (err2) {
-            console.warn("Insert to treatment_improvement_categories failed, trying treatment_categories", err2);
-            const relations1 = selectedCategoryIds.map(cid => ({
+          const { error: relErr } = await supabase.from('treatment_improvement_categories').insert(relations);
+          
+          if (relErr) {
+            // 備案：嘗試寫入 treatment_categories
+            const altRelations = selectedCategoryIds.map(cid => ({
               treatment_id: treatmentId,
               category_id: cid
             }));
-            const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
-            if (err1) console.error("Both category inserts failed", err1);
+            await supabase.from('treatment_categories').insert(altRelations);
           }
         }
       } catch (cErr) {
@@ -362,7 +370,13 @@ export default function TreatmentListPage() {
                   </td>
                   <td className="p-8">
                     <div className="font-black text-gray-800 text-lg">{t.title}</div>
-                    <p className="text-xs text-gray-400 line-clamp-1">{t.description}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {t.category_names?.map((name: string, idx: number) => (
+                        <span key={idx} className="text-[10px] bg-clinic-cream text-clinic-gold px-2 py-0.5 rounded-md font-bold border border-clinic-gold/20">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="p-8 font-bold text-gray-400 text-sm">
                     {t.treatment_price_options?.length || 0} 個方案
