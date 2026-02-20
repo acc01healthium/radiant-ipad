@@ -47,6 +47,7 @@ async function getCroppedImg(
 export default function TreatmentListPage() {
   const [treatments, setTreatments] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [allCases, setAllCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function TreatmentListPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [priceOptions, setPriceOptions] = useState<any[]>([]);
   const [iconName, setIconName] = useState('Sparkles');
@@ -130,6 +132,22 @@ export default function TreatmentListPage() {
         console.error("Fetch relations error:", relErr);
       }
 
+      // 5. 抓取案例清單
+      const { data: casesData, error: casesError } = await supabase
+        .from('cases')
+        .select('*')
+        .order('id', { ascending: false });
+      
+      if (casesError) console.error("Fetch cases error:", casesError);
+      setAllCases(casesData || []);
+
+      // 6. 抓取案例與療程關聯
+      const { data: caseRels, error: caseRelsError } = await supabase
+        .from('case_treatments')
+        .select('*');
+      
+      if (caseRelsError) console.error("Fetch case relations error:", caseRelsError);
+
       const finalTData = (tData || []).map(t => {
         const tRelations = relations.filter(r => r.treatment_id === t.id);
         const tCategories = tRelations.map(r => {
@@ -141,7 +159,8 @@ export default function TreatmentListPage() {
           ...t,
           treatment_price_options: (pData || []).filter(p => p.treatment_id === t.id),
           treatment_improvement_categories: tRelations,
-          category_names: tCategories
+          category_names: tCategories,
+          case_ids: (caseRels || []).filter(r => r.treatment_id === t.id).map(r => r.case_id)
         };
       });
 
@@ -155,6 +174,12 @@ export default function TreatmentListPage() {
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleCase = (id: string) => {
+    setSelectedCaseIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -281,6 +306,22 @@ export default function TreatmentListPage() {
         console.error("Categories sync error:", cErr);
       }
 
+      // 第四步：同步案例關聯
+      try {
+        await supabase.from('case_treatments').delete().eq('treatment_id', treatmentId);
+        
+        if (selectedCaseIds.length > 0) {
+          const caseRels = selectedCaseIds.map(cid => ({
+            treatment_id: treatmentId,
+            case_id: cid
+          }));
+          const { error: caseRelErr } = await supabase.from('case_treatments').insert(caseRels);
+          if (caseRelErr) console.error("Insert case relations error:", caseRelErr);
+        }
+      } catch (caseErr) {
+        console.error("Cases sync error:", caseErr);
+      }
+
       setIsModalOpen(false);
       fetchData(); 
     } catch (err: any) {
@@ -320,6 +361,8 @@ export default function TreatmentListPage() {
       
       const categoryIds = t.treatment_improvement_categories?.map((rel: any) => rel.improvement_category_id) || [];
       setSelectedCategoryIds(categoryIds);
+
+      setSelectedCaseIds(t.case_ids || []);
       
       const mappedOptions = (t.treatment_price_options || []).map((opt: any) => ({
         ...opt,
@@ -344,6 +387,7 @@ export default function TreatmentListPage() {
       setDescription('');
       setSortOrder(treatments.length + 1);
       setSelectedCategoryIds([]);
+      setSelectedCaseIds([]);
       setPriceOptions([{ label: '', sessions: 1, price: 0 }]);
       setIconName('Sparkles');
       setExistingImagePath(null);
@@ -490,6 +534,55 @@ export default function TreatmentListPage() {
                     ))}
                   </div>
                </section>
+
+               <section className="bg-gray-50/50 p-8 rounded-[2.5rem] border border-gray-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><LucideIcons.Camera size={18}/> 術前術後案例關聯</h4>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">選擇要顯示在此療程下的案例</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allCases.length === 0 ? (
+                      <div className="col-span-full p-10 text-center text-gray-300 font-bold italic border-2 border-dashed rounded-3xl">
+                        目前尚無案例資料
+                      </div>
+                    ) : (
+                      allCases.map(c => (
+                        <div 
+                          key={c.id} 
+                          onClick={() => toggleCase(c.id)}
+                          className={`cursor-pointer p-4 rounded-3xl border-2 transition-all flex gap-4 items-center ${
+                            selectedCaseIds.includes(c.id) 
+                              ? 'bg-clinic-gold/5 border-clinic-gold shadow-md' 
+                              : 'bg-white border-gray-100 hover:border-amber-100'
+                          }`}
+                        >
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border">
+                            {c.image_url ? (
+                              <img src={c.image_url} className="w-full h-full object-cover" alt="" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                <LucideIcons.Image size={24} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-black truncate ${selectedCaseIds.includes(c.id) ? 'text-clinic-gold' : 'text-gray-700'}`}>
+                              {c.title}
+                            </div>
+                            <div className="text-[10px] text-gray-400 font-bold truncate">
+                              {c.doctor_name ? `執刀：${c.doctor_name}` : '未註明醫師'}
+                            </div>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            selectedCaseIds.includes(c.id) ? 'bg-clinic-gold border-clinic-gold text-white' : 'border-gray-200'
+                          }`}>
+                            {selectedCaseIds.includes(c.id) && <LucideIcons.Check size={14} strokeWidth={4} />}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
             </form>
 
             <div className="p-8 border-t flex justify-end bg-white sticky bottom-0 z-10 shrink-0">
