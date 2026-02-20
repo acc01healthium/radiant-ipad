@@ -23,17 +23,30 @@ function RecommendationContent() {
 
       setLoading(true);
       try {
-        // 1. 找出符合分類的療程 ID (同時查詢兩個可能的關聯表並合併結果)
+        // 1. 找出符合分類的療程 ID
+        // 為了避免 400 錯誤 (欄位名稱不匹配)，我們先抓取全量關聯並在前端篩選
         const [res1, res2] = await Promise.all([
-          supabase.from('treatment_categories').select('treatment_id').in('category_id', cats),
-          supabase.from('treatment_improvement_categories').select('treatment_id').in('improvement_category_id', cats)
+          supabase.from('treatment_categories').select('*'),
+          supabase.from('treatment_improvement_categories').select('*')
         ]);
 
-        const ids1 = res1.data?.map(r => r.treatment_id) || [];
-        const ids2 = res2.data?.map(r => r.treatment_id) || [];
+        const r1 = (res1.data || []).map(r => ({
+          t_id: r.treatment_id,
+          c_id: r.category_id || r.improvement_category_id
+        }));
         
-        // 合併並去重
-        const treatmentIds = Array.from(new Set([...ids1, ...ids2]));
+        const r2 = (res2.data || []).map(r => ({
+          t_id: r.treatment_id,
+          c_id: r.improvement_category_id || r.category_id
+        }));
+
+        const allRels = [...r1, ...r2];
+        const treatmentIds = Array.from(new Set(
+          allRels
+            .filter(r => cats.includes(r.c_id))
+            .map(r => r.t_id)
+        ));
+
         console.log("Recommended Treatment IDs:", treatmentIds);
 
         if (treatmentIds.length === 0) {
@@ -52,15 +65,19 @@ function RecommendationContent() {
           .in('id', treatmentIds)
           .order('sort_order', { ascending: true });
 
-        if (error) throw error;
-        
-        // 確保價格方案也正確排序 (如果沒有 sort_order 則按價格)
-        const sortedData = (data || []).map(t => ({
-          ...t,
-          treatment_price_options: (t.treatment_price_options || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price)
-        }));
-
-        setTreatments(sortedData);
+        if (error) {
+          console.error("Fetch treatments error:", error);
+          // 如果 400，嘗試不帶價格方案抓取
+          const { data: fallbackData } = await supabase.from('treatments').select('*').in('id', treatmentIds);
+          setTreatments(fallbackData || []);
+        } else {
+          // 確保價格方案也正確排序
+          const sortedData = (data || []).map(t => ({
+            ...t,
+            treatment_price_options: (t.treatment_price_options || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price)
+          }));
+          setTreatments(sortedData);
+        }
       } catch (err) {
         console.error("Fetch recommendations error:", err);
       } finally {

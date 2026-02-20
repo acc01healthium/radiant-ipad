@@ -186,18 +186,29 @@ export default function TreatmentListPage() {
       let treatmentId = editingId;
 
       if (editingId) {
-        const { error: tError } = await supabase
-          .from('treatments')
-          .update(treatmentPayload)
-          .eq('id', editingId);
-        
-        if (tError) {
-          console.error("Treatment Update Error:", tError);
-          if (tError.code === '54001') {
-            // Fallback for stack depth limit
-            await supabase.from('treatments').update({ title: title.trim(), description: description.trim() }).eq('id', editingId);
-          } else {
-            throw tError;
+        // 檢查是否有實質變動，避免觸發資料庫遞迴更新 (stack depth limit)
+        const current = treatments.find(t => t.id === editingId);
+        const hasChanged = !current || (
+          current.title !== treatmentPayload.title ||
+          current.description !== treatmentPayload.description ||
+          current.sort_order !== treatmentPayload.sort_order ||
+          current.image_url !== treatmentPayload.image_url
+        );
+
+        if (hasChanged) {
+          const { error: tError } = await supabase
+            .from('treatments')
+            .update(treatmentPayload)
+            .eq('id', editingId);
+          
+          if (tError) {
+            console.error("Treatment Update Error:", tError);
+            if (tError.code === '54001') {
+              // 再次嘗試最小化更新
+              await supabase.from('treatments').update({ title: title.trim() }).eq('id', editingId);
+            } else {
+              throw tError;
+            }
           }
         }
       } else {
@@ -226,7 +237,7 @@ export default function TreatmentListPage() {
             sessions: Number(opt.sessions) || 1,
           }));
           const { error: insPriceErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
-          if (insPriceErr) throw insPriceErr;
+          if (insPriceErr) console.error("Insert prices error:", insPriceErr);
         }
       } catch (pErr) {
         console.error("Price options sync error:", pErr);
@@ -234,25 +245,36 @@ export default function TreatmentListPage() {
 
       // 第三步：同步改善項目關聯
       try {
+        // 刪除舊關聯
         await Promise.allSettled([
           supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
           supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
         ]);
         
         if (selectedCategoryIds.length > 0) {
-          const relations = selectedCategoryIds.map(cid => ({
-            treatment_id: treatmentId,
-            improvement_category_id: cid
-          }));
-          
-          const { error: relErr } = await supabase.from('treatment_improvement_categories').insert(relations);
-          
-          if (relErr) {
-            const altRelations = selectedCategoryIds.map(cid => ({
+          // 嘗試多種可能的欄位組合以應對 Schema 差異
+          const tryInsert = async (tableName: string, colName: string) => {
+            const rels = selectedCategoryIds.map(cid => ({
               treatment_id: treatmentId,
-              category_id: cid
+              [colName]: cid
             }));
-            await supabase.from('treatment_categories').insert(altRelations);
+            return await supabase.from(tableName).insert(rels);
+          };
+
+          // 1. 嘗試 treatment_improvement_categories (improvement_category_id)
+          const res1 = await tryInsert('treatment_improvement_categories', 'improvement_category_id');
+          
+          if (res1.error) {
+            console.warn("Insert to treatment_improvement_categories (improvement_category_id) failed, trying category_id", res1.error);
+            // 2. 嘗試 treatment_improvement_categories (category_id)
+            const res2 = await tryInsert('treatment_improvement_categories', 'category_id');
+            
+            if (res2.error) {
+              console.warn("Insert to treatment_improvement_categories (category_id) failed, trying treatment_categories", res2.error);
+              // 3. 嘗試 treatment_categories (category_id)
+              const res3 = await tryInsert('treatment_categories', 'category_id');
+              if (res3.error) console.error("All relation inserts failed", res3.error);
+            }
           }
         }
       } catch (cErr) {
