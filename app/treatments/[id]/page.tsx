@@ -24,12 +24,18 @@ export default function TreatmentDetailPage() {
         .from('treatments')
         .select(`
           id, title, description, icon_name, image_url, sort_order,
-          treatment_price_options (id, label, sessions, price, sort_order)
+          treatment_price_options (id, label, sessions, price)
         `)
         .eq('id', id)
         .single();
       
       if (error) throw error;
+
+      // 手動排序價格方案
+      if (data && data.treatment_price_options) {
+        data.treatment_price_options.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price);
+      }
+
       setTreatment(data);
     } catch (err) {
       console.error("Fetch Detail Error:", err);

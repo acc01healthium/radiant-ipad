@@ -78,7 +78,7 @@ export default function TreatmentListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. 抓取改善項目清單 (先抓取，因為後續處理療程時需要用到)
+      // 1. 抓取改善項目清單
       const { data: cData, error: cError } = await supabase
         .from('improvement_categories')
         .select('id, name')
@@ -99,8 +99,7 @@ export default function TreatmentListPage() {
       // 3. 抓取價格方案
       const { data: pData, error: pError } = await supabase
         .from('treatment_price_options')
-        .select('*')
-        .order('sort_order', { ascending: true });
+        .select('*');
 
       if (pError) console.error("Fetch prices error:", pError);
 
@@ -112,17 +111,21 @@ export default function TreatmentListPage() {
           supabase.from('treatment_categories').select('*')
         ]);
 
-        if (rel1.data && rel1.data.length > 0) {
-          relations = rel1.data.map(r => ({
-            treatment_id: r.treatment_id,
-            improvement_category_id: r.improvement_category_id || r.category_id
-          }));
-        } else if (rel2.data && rel2.data.length > 0) {
-          relations = rel2.data.map(r => ({
-            treatment_id: r.treatment_id,
-            improvement_category_id: r.category_id || r.improvement_category_id
-          }));
-        }
+        const r1 = (rel1.data || []).map(r => ({
+          treatment_id: r.treatment_id,
+          improvement_category_id: r.improvement_category_id || r.category_id
+        }));
+        
+        const r2 = (rel2.data || []).map(r => ({
+          treatment_id: r.treatment_id,
+          improvement_category_id: r.category_id || r.improvement_category_id
+        }));
+        
+        const combined = [...r1, ...r2];
+        relations = combined.filter((v, i, a) => 
+          v.treatment_id && v.improvement_category_id &&
+          a.findIndex(item => item.treatment_id === v.treatment_id && item.improvement_category_id === v.improvement_category_id) === i
+        );
       } catch (relErr) {
         console.error("Fetch relations error:", relErr);
       }
@@ -130,8 +133,8 @@ export default function TreatmentListPage() {
       const finalTData = (tData || []).map(t => {
         const tRelations = relations.filter(r => r.treatment_id === t.id);
         const tCategories = tRelations.map(r => {
-          const cat = categoriesList.find(c => c.id === r.improvement_category_id);
-          return cat ? cat.name : null;
+          const foundCat = categoriesList.find(catItem => catItem.id === r.improvement_category_id);
+          return foundCat ? foundCat.name : null;
         }).filter(Boolean);
 
         return {
@@ -145,11 +148,6 @@ export default function TreatmentListPage() {
       setTreatments(finalTData);
     } catch (err: any) {
       console.error("Fetch Data Error:", err);
-      // 降級處理：至少嘗試顯示基礎療程
-      try {
-        const { data: basic } = await supabase.from('treatments').select('*');
-        if (basic) setTreatments(basic);
-      } catch (e) {}
     } finally {
       setLoading(false);
     }
@@ -168,7 +166,6 @@ export default function TreatmentListPage() {
     try {
       let finalImageUrl = existingImagePath;
 
-      // 處理圖片上傳
       if (imageFile) {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
         const path = `treatments/${fileName}`;
@@ -179,8 +176,6 @@ export default function TreatmentListPage() {
         finalImageUrl = publicUrlData.publicUrl;
       }
 
-      // 移除 updated_at 以避免觸發資料庫遞迴更新錯誤 (stack depth limit exceeded)
-      // 同時確保數值型態正確
       const treatmentPayload: any = {
         title: title.trim(),
         description: description.trim(),
@@ -190,13 +185,21 @@ export default function TreatmentListPage() {
       
       let treatmentId = editingId;
 
-      // 第一步：處理 Treatments 主檔
       if (editingId) {
         const { error: tError } = await supabase
           .from('treatments')
           .update(treatmentPayload)
           .eq('id', editingId);
-        if (tError) throw tError;
+        
+        if (tError) {
+          console.error("Treatment Update Error:", tError);
+          if (tError.code === '54001') {
+            // Fallback for stack depth limit
+            await supabase.from('treatments').update({ title: title.trim(), description: description.trim() }).eq('id', editingId);
+          } else {
+            throw tError;
+          }
+        }
       } else {
         const { data: tData, error: tError } = await supabase
           .from('treatments')
@@ -211,38 +214,32 @@ export default function TreatmentListPage() {
 
       // 第二步：同步價格方案
       try {
-        // 先刪除
         await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
         
-        // 過濾掉空的方案
-        const validOptions = priceOptions.filter(opt => opt.price > 0 || (opt.label && opt.label.trim() !== ''));
+        const validOptions = priceOptions.filter(opt => Number(opt.price) > 0 || (opt.label && opt.label.trim() !== ''));
         
         if (validOptions.length > 0) {
-          const optionsToInsert = validOptions.map((opt, idx) => ({
+          const optionsToInsert = validOptions.map((opt) => ({
             treatment_id: treatmentId,
-            label: opt.label?.trim() || (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`),
+            label: opt.label?.trim() || (Number(opt.sessions) === 1 ? '單堂' : `${opt.sessions}堂`),
             price: Number(opt.price) || 0,
             sessions: Number(opt.sessions) || 1,
-            // 移除 sort_order 以免資料表不存在該欄位
           }));
           const { error: insPriceErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
           if (insPriceErr) throw insPriceErr;
         }
       } catch (pErr) {
         console.error("Price options sync error:", pErr);
-        // 價格儲存失敗不一定要中斷整個流程
       }
 
       // 第三步：同步改善項目關聯
       try {
-        // 刪除舊關聯
         await Promise.allSettled([
           supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
           supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
         ]);
         
         if (selectedCategoryIds.length > 0) {
-          // 嘗試寫入新關聯 (優先寫入 treatment_improvement_categories)
           const relations = selectedCategoryIds.map(cid => ({
             treatment_id: treatmentId,
             improvement_category_id: cid
@@ -251,7 +248,6 @@ export default function TreatmentListPage() {
           const { error: relErr } = await supabase.from('treatment_improvement_categories').insert(relations);
           
           if (relErr) {
-            // 備案：嘗試寫入 treatment_categories
             const altRelations = selectedCategoryIds.map(cid => ({
               treatment_id: treatmentId,
               category_id: cid

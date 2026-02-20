@@ -23,25 +23,18 @@ function RecommendationContent() {
 
       setLoading(true);
       try {
-        // 1. 先找出符合分類的療程 ID (嘗試多個可能的關聯表)
-        let treatmentIds: string[] = [];
+        // 1. 找出符合分類的療程 ID (同時查詢兩個可能的關聯表並合併結果)
+        const [res1, res2] = await Promise.all([
+          supabase.from('treatment_categories').select('treatment_id').in('category_id', cats),
+          supabase.from('treatment_improvement_categories').select('treatment_id').in('improvement_category_id', cats)
+        ]);
+
+        const ids1 = res1.data?.map(r => r.treatment_id) || [];
+        const ids2 = res2.data?.map(r => r.treatment_id) || [];
         
-        // 嘗試 treatment_categories
-        const { data: rels1 } = await supabase
-          .from('treatment_categories')
-          .select('treatment_id')
-          .in('category_id', cats);
-        
-        if (rels1 && rels1.length > 0) {
-          treatmentIds = rels1.map(r => r.treatment_id);
-        } else {
-          // 嘗試 treatment_improvement_categories
-          const { data: rels2 } = await supabase
-            .from('treatment_improvement_categories')
-            .select('treatment_id')
-            .in('improvement_category_id', cats);
-          if (rels2) treatmentIds = rels2.map(r => r.treatment_id);
-        }
+        // 合併並去重
+        const treatmentIds = Array.from(new Set([...ids1, ...ids2]));
+        console.log("Recommended Treatment IDs:", treatmentIds);
 
         if (treatmentIds.length === 0) {
           setTreatments([]);
@@ -54,13 +47,20 @@ function RecommendationContent() {
           .from('treatments')
           .select(`
             id, title, description, icon_name, image_url, sort_order,
-            treatment_price_options (id, label, sessions, price, sort_order)
+            treatment_price_options (id, label, sessions, price)
           `)
           .in('id', treatmentIds)
           .order('sort_order', { ascending: true });
 
         if (error) throw error;
-        setTreatments(data || []);
+        
+        // 確保價格方案也正確排序 (如果沒有 sort_order 則按價格)
+        const sortedData = (data || []).map(t => ({
+          ...t,
+          treatment_price_options: (t.treatment_price_options || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price)
+        }));
+
+        setTreatments(sortedData);
       } catch (err) {
         console.error("Fetch recommendations error:", err);
       } finally {
