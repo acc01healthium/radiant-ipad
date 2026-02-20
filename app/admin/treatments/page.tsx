@@ -81,48 +81,50 @@ export default function TreatmentListPage() {
       // 1. 抓取療程清單
       const { data: tData, error: tError } = await supabase
         .from('treatments')
-        .select(`
-          id, 
-          title, 
-          description, 
-          sort_order,
-          icon_name,
-          image_url,
-          treatment_price_options (id, label, sessions, price, sort_order)
-        `)
+        .select('*')
         .order('sort_order', { ascending: true });
 
       if (tError) throw tError;
 
-      // 2. 抓取關聯 (嘗試多個可能的表名)
+      // 2. 抓取價格方案 (分開抓取以確保穩定)
+      const { data: pData, error: pError } = await supabase
+        .from('treatment_price_options')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (pError) console.error("Fetch prices error:", pError);
+
+      // 3. 抓取關聯 (嘗試多個可能的表名與欄位)
       let relations: any[] = [];
       
-      // 嘗試 treatment_improvement_categories
-      const { data: relData1, error: relErr1 } = await supabase
-        .from('treatment_improvement_categories')
-        .select('treatment_id, improvement_category_id');
-      
-      if (!relErr1 && relData1) {
-        relations = relData1;
-      } else {
-        // 嘗試 treatment_categories
-        const { data: relData2 } = await supabase
-          .from('treatment_categories')
-          .select('treatment_id, category_id');
-        if (relData2) {
-          relations = relData2.map(r => ({
+      try {
+        const [rel1, rel2] = await Promise.all([
+          supabase.from('treatment_improvement_categories').select('*'),
+          supabase.from('treatment_categories').select('*')
+        ]);
+
+        if (rel1.data && rel1.data.length > 0) {
+          relations = rel1.data.map(r => ({
             treatment_id: r.treatment_id,
-            improvement_category_id: r.category_id
+            improvement_category_id: r.improvement_category_id || r.category_id
+          }));
+        } else if (rel2.data && rel2.data.length > 0) {
+          relations = rel2.data.map(r => ({
+            treatment_id: r.treatment_id,
+            improvement_category_id: r.category_id || r.improvement_category_id
           }));
         }
+      } catch (relErr) {
+        console.error("Fetch relations error:", relErr);
       }
 
       const finalTData = (tData || []).map(t => ({
         ...t,
+        treatment_price_options: (pData || []).filter(p => p.treatment_id === t.id),
         treatment_improvement_categories: relations.filter(r => r.treatment_id === t.id)
       }));
 
-      // 3. 抓取改善項目清單
+      // 4. 抓取改善項目清單
       const { data: cData, error: cError } = await supabase
         .from('improvement_categories')
         .select('id, name')
@@ -133,7 +135,7 @@ export default function TreatmentListPage() {
       setTreatments(finalTData);
       setCategories(cData || []);
     } catch (err: any) {
-      console.error("Fetch Data Error:", err.message);
+      console.error("Fetch Data Error:", err);
       const { data: basic } = await supabase.from('treatments').select('*');
       if (basic) setTreatments(basic);
     } finally {
@@ -194,9 +196,10 @@ export default function TreatmentListPage() {
 
       if (!treatmentId) throw new Error("無法取得療程 ID");
 
-      // 第二步：同步價格方案 (使用 Promise.allSettled 避免中斷)
+      // 第二步：同步價格方案
       try {
-        await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
+        const { error: delPriceErr } = await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
+        if (delPriceErr) console.error("Delete prices error:", delPriceErr);
         
         if (priceOptions.length > 0) {
           const optionsToInsert = priceOptions.map((opt, idx) => ({
@@ -206,13 +209,19 @@ export default function TreatmentListPage() {
             sessions: Number(opt.sessions) || 1,
             sort_order: idx
           }));
-          await supabase.from('treatment_price_options').insert(optionsToInsert);
+          const { error: insPriceErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
+          if (insPriceErr) {
+            console.error("Insert prices error:", insPriceErr);
+            throw insPriceErr;
+          }
         }
       } catch (pErr) {
         console.error("Price options sync error:", pErr);
+        // 價格儲存失敗不一定要中斷整個流程，但這裡我們選擇拋出以便讓使用者知道
+        throw pErr;
       }
 
-      // 第三步：同步改善項目關聯 (使用 Promise.allSettled 避免中斷)
+      // 第三步：同步改善項目關聯
       try {
         await Promise.allSettled([
           supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
@@ -229,11 +238,13 @@ export default function TreatmentListPage() {
           
           // 如果失敗，嘗試寫入 treatment_categories
           if (err2) {
+            console.warn("Insert to treatment_improvement_categories failed, trying treatment_categories", err2);
             const relations1 = selectedCategoryIds.map(cid => ({
               treatment_id: treatmentId,
               category_id: cid
             }));
-            await supabase.from('treatment_categories').insert(relations1);
+            const { error: err1 } = await supabase.from('treatment_categories').insert(relations1);
+            if (err1) console.error("Both category inserts failed", err1);
           }
         }
       } catch (cErr) {
