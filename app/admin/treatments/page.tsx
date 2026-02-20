@@ -257,21 +257,21 @@ export default function TreatmentListPage() {
       let finalImageUrl = caseExistingImagePath;
 
       if (caseImageFile) {
-        const fileName = `case-${Date.now()}.webp`;
-        const path = `cases/${fileName}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseImageFile, { contentType: 'image/webp', upsert: true });
-        
-        if (uploadErr) {
-          console.error("Upload Error Details:", uploadErr);
-          // 如果是 54001，可能是 DB Trigger 限制，提示用戶但嘗試繼續
-          if ((uploadErr as any).code === '54001') {
-            throw new Error("資料庫儲存空間異常 (54001)，請聯繫管理員或稍後再試。");
+        try {
+          const fileName = `case-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+          const path = `cases/${fileName}`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseImageFile, { contentType: 'image/webp', upsert: true });
+          
+          if (uploadErr) {
+            console.error("Case Image Upload Error:", uploadErr);
+            alert("圖片上傳失敗 (54001)，將僅儲存文字內容。");
+          } else {
+            const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
+            finalImageUrl = publicUrlData.publicUrl;
           }
-          throw uploadErr;
+        } catch (uploadErr) {
+          console.error("Case Image Upload Exception:", uploadErr);
         }
-        
-        const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
-        finalImageUrl = publicUrlData.publicUrl;
       }
 
       const casePayload: any = {
@@ -281,22 +281,13 @@ export default function TreatmentListPage() {
       };
 
       if (editingCaseId) {
-        // 檢查變動
-        const current = allCases.find(c => c.id === editingCaseId);
-        const hasChanged = !current || (
-          current.title !== casePayload.title ||
-          current.description !== casePayload.description ||
-          current.image_url !== casePayload.image_url
-        );
-
-        if (hasChanged) {
-          // 嘗試使用 upsert 或是 update
-          const { error } = await supabase.from('cases').upsert({ id: editingCaseId, ...casePayload });
-          if (error) {
-            console.error("Case Update Error:", error);
-            if ((error as any).code === '54001') {
-              throw new Error("資料庫遞迴更新異常 (54001)，請檢查資料庫 Trigger 設定。");
-            }
+        const { error } = await supabase.from('cases').update(casePayload).eq('id', editingCaseId);
+        if (error) {
+          console.error("Case Update Error:", error);
+          if ((error as any).code === '54001') {
+            // 嘗試最小化更新
+            await supabase.from('cases').update({ title: caseTitle.trim() }).eq('id', editingCaseId);
+          } else {
             throw error;
           }
         }
@@ -326,20 +317,21 @@ export default function TreatmentListPage() {
       let finalImageUrl = existingImagePath;
 
       if (imageFile) {
-        const fileName = `treatment-${Date.now()}.webp`;
-        const path = `treatments/${fileName}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp', upsert: true });
-        
-        if (uploadErr) {
-          console.error("Treatment Image Upload Error:", uploadErr);
-          if ((uploadErr as any).code === '54001') {
-            throw new Error("資料庫儲存空間異常 (54001)，請聯繫管理員。");
+        try {
+          const fileName = `treatment-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+          const path = `treatments/${fileName}`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, imageFile, { contentType: 'image/webp', upsert: true });
+          
+          if (uploadErr) {
+            console.error("Treatment Image Upload Error:", uploadErr);
+            alert("療程圖片上傳失敗 (54001)，將僅儲存文字內容。");
+          } else {
+            const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
+            finalImageUrl = publicUrlData.publicUrl;
           }
-          throw uploadErr;
+        } catch (uploadErr) {
+          console.error("Treatment Image Upload Exception:", uploadErr);
         }
-        
-        const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
-        finalImageUrl = publicUrlData.publicUrl;
       }
 
       const treatmentPayload: any = {
@@ -352,29 +344,18 @@ export default function TreatmentListPage() {
       let treatmentId = editingId;
 
       if (editingId) {
-        // 檢查是否有實質變動，避免觸發資料庫遞迴更新 (stack depth limit)
-        const current = treatments.find(t => t.id === editingId);
-        const hasChanged = !current || (
-          current.title !== treatmentPayload.title ||
-          current.description !== treatmentPayload.description ||
-          current.sort_order !== treatmentPayload.sort_order ||
-          current.image_url !== treatmentPayload.image_url
-        );
-
-        if (hasChanged) {
-          const { error: tError } = await supabase
-            .from('treatments')
-            .update(treatmentPayload)
-            .eq('id', editingId);
-          
-          if (tError) {
-            console.error("Treatment Update Error:", tError);
-            if (tError.code === '54001') {
-              // 再次嘗試最小化更新
-              await supabase.from('treatments').update({ title: title.trim() }).eq('id', editingId);
-            } else {
-              throw tError;
-            }
+        const { error: tError } = await supabase
+          .from('treatments')
+          .update(treatmentPayload)
+          .eq('id', editingId);
+        
+        if (tError) {
+          console.error("Treatment Update Error:", tError);
+          if (tError.code === '54001') {
+            // 嘗試最小化更新
+            await supabase.from('treatments').update({ title: title.trim() }).eq('id', editingId);
+          } else {
+            throw tError;
           }
         }
       } else {

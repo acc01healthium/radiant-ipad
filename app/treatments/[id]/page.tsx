@@ -60,11 +60,25 @@ export default function TreatmentDetailPage() {
         }
 
         // 策略 3: 嘗試直接從 cases 表抓取 (1-to-many)
-        const { data: casesData } = await supabase
+        const { data: casesData3 } = await supabase
           .from('cases')
           .select('*')
           .eq('treatment_id', id);
-        if (casesData) associatedCases = [...associatedCases, ...casesData];
+        if (casesData3) associatedCases = [...associatedCases, ...casesData3];
+
+        // 策略 4: 嘗試 treatmentId (大寫)
+        const { data: casesData4 } = await supabase
+          .from('cases')
+          .select('*')
+          .eq('treatmentId', id);
+        if (casesData4) associatedCases = [...associatedCases, ...casesData4];
+
+        // 策略 5: 嘗試從 treatment_cases 表抓取 (如果它是 1-to-many)
+        const { data: casesData5 } = await supabase
+          .from('treatment_cases')
+          .select('*')
+          .eq('treatment_id', id);
+        if (casesData5) associatedCases = [...associatedCases, ...casesData5];
 
         // 去重
         associatedCases = associatedCases.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
