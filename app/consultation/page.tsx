@@ -14,17 +14,23 @@ function ConsultationContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      // 移除 is_active 篩選
-      const { data } = await supabase
-        .from('improvement_categories')
-        .select('id, name, icon_name, sort_order')
-        .order('sort_order', { ascending: true });
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('improvement_categories')
+      .select('id, name, icon_name, icon_image_url, icon_image_path, sort_order')
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('fetchCategories error:', error.message);
+      setCategories([]);
+    } else {
       setCategories(data || []);
-      setLoading(false);
-    };
-    fetchCategories();
-  }, []);
+    }
+    setLoading(false);
+  };
+
+  fetchCategories();
+}, []);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
