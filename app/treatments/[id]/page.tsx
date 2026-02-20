@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera } from 'lucide-react';
+import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera, Image as LucideImage } from 'lucide-react';
 
 export default function TreatmentDetailPage() {
   const { id } = useParams();
@@ -31,12 +31,54 @@ export default function TreatmentDetailPage() {
       
       if (error) throw error;
 
+      // 抓取關聯案例
+      let associatedCases: any[] = [];
+      
+      try {
+        // 策略 1: 嘗試從 case_treatments 關聯表抓取
+        const { data: rels1 } = await supabase
+          .from('case_treatments')
+          .select('case_id')
+          .eq('treatment_id', id);
+        
+        if (rels1 && rels1.length > 0) {
+          const caseIds = rels1.map(r => r.case_id);
+          const { data: casesData } = await supabase.from('cases').select('*').in('id', caseIds);
+          if (casesData) associatedCases = [...associatedCases, ...casesData];
+        }
+
+        // 策略 2: 嘗試從 treatment_cases 關聯表抓取
+        const { data: rels2 } = await supabase
+          .from('treatment_cases')
+          .select('case_id')
+          .eq('treatment_id', id);
+        
+        if (rels2 && rels2.length > 0) {
+          const caseIds = rels2.map(r => r.case_id);
+          const { data: casesData } = await supabase.from('cases').select('*').in('id', caseIds);
+          if (casesData) associatedCases = [...associatedCases, ...casesData];
+        }
+
+        // 策略 3: 嘗試直接從 cases 表抓取 (1-to-many)
+        const { data: casesData } = await supabase
+          .from('cases')
+          .select('*')
+          .eq('treatment_id', id);
+        if (casesData) associatedCases = [...associatedCases, ...casesData];
+
+        // 去重
+        associatedCases = associatedCases.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+        console.log("Associated Cases for treatment:", associatedCases);
+      } catch (err) {
+        console.error("Error fetching cases:", err);
+      }
+
       // 手動排序價格方案
       if (data && data.treatment_price_options) {
         data.treatment_price_options.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price);
       }
 
-      setTreatment(data);
+      setTreatment({ ...data, cases: associatedCases });
     } catch (err) {
       console.error("Fetch Detail Error:", err);
     } finally {
@@ -106,6 +148,41 @@ export default function TreatmentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 術前術後案例 */}
+      {treatment.cases && treatment.cases.length > 0 && (
+        <div className="max-w-6xl mx-auto px-6 mt-16">
+          <div className="flex items-center gap-3 text-clinic-gold mb-8">
+            <Camera size={24} />
+            <h2 className="text-2xl font-black uppercase tracking-[0.2em]">術前術後案例</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {treatment.cases.map((c: any) => (
+              <div key={c.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border group hover:shadow-2xl transition-all">
+                <div className="aspect-[4/3] overflow-hidden bg-gray-100">
+                  {c.image_url ? (
+                    <img src={c.image_url} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-200">
+                      <LucideImage size={64} />
+                    </div>
+                  )}
+                </div>
+                <div className="p-8">
+                  <h3 className="text-xl font-black text-gray-800 mb-2 truncate">{c.title}</h3>
+                  <p className="text-gray-500 text-sm line-clamp-2 font-medium italic">{c.description}</p>
+                  {c.doctor_name && (
+                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">執刀醫師</span>
+                      <span className="text-clinic-gold font-bold">{c.doctor_name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
