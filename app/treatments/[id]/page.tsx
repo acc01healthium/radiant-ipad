@@ -35,16 +35,7 @@ export default function TreatmentDetailPage() {
       let associatedCases: any[] = [];
       
       try {
-        // 策略 1: 嘗試從 cases 表抓取 (1-to-many 模式)
-        const { data: casesData } = await supabase
-          .from('cases')
-          .select('*')
-          .eq('treatment_id', id);
-        if (casesData && casesData.length > 0) {
-          associatedCases = [...casesData];
-        }
-
-        // 策略 2: 標題精確匹配 (這是用戶特別要求的備案)
+        // 策略 1: 標題精確匹配 (這是目前最可靠的關聯方式)
         if (data?.title) {
           const { data: titleMatched } = await supabase
             .from('cases')
@@ -52,8 +43,21 @@ export default function TreatmentDetailPage() {
             .eq('title', data.title.trim());
           
           if (titleMatched && titleMatched.length > 0) {
-            associatedCases = [...associatedCases, ...titleMatched];
+            associatedCases = [...titleMatched];
           }
+        }
+
+        // 策略 2: 嘗試從 cases 表抓取 (備案，以防未來新增了 treatment_id 欄位)
+        try {
+          const { data: casesData } = await supabase
+            .from('cases')
+            .select('*')
+            .eq('treatment_id', id);
+          if (casesData && casesData.length > 0) {
+            associatedCases = [...associatedCases, ...casesData];
+          }
+        } catch (e) {
+          // 忽略欄位不存在的錯誤
         }
 
         // 去重
@@ -85,7 +89,7 @@ export default function TreatmentDetailPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative h-[25vh] min-h-[300px] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
+      <div className="relative h-[20vh] min-h-[250px] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
         {imageUrl ? (
           <img src={imageUrl} alt={treatment.title} className="w-full h-full object-cover" />
         ) : (

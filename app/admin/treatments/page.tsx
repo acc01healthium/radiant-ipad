@@ -147,7 +147,7 @@ export default function TreatmentListPage() {
 
         // 收集關聯的案例 ID
         const tCaseIds = (casesData || [])
-          .filter(c => c.treatment_id === t.id || (c.title && t.title && c.title.trim() === t.title.trim()))
+          .filter(c => c.title && t.title && c.title.trim() === t.title.trim())
           .map(c => c.id);
 
         return {
@@ -188,7 +188,8 @@ export default function TreatmentListPage() {
       setCaseExistingImagePath(c.image_url || null);
     } else {
       setEditingCaseId(null);
-      setCaseTitle('');
+      // 預設使用當前療程標題，這樣新增後就會因為標題一致而自動關聯
+      setCaseTitle(title || '');
       setCaseDescription('');
       setCaseImagePreview(null);
       setCaseExistingImagePath(null);
@@ -368,19 +369,10 @@ export default function TreatmentListPage() {
       }
 
       // 第四步：同步案例關聯
-      try {
-        // 嘗試更新 cases 表 (1-to-many 模式) - 僅在欄位存在時有效
-        try {
-          await supabase.from('cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
-          if (selectedCaseIds.length > 0) {
-            await supabase.from('cases').update({ treatment_id: treatmentId }).in('id', selectedCaseIds);
-          }
-        } catch (e) {
-          console.warn("Update cases.treatment_id failed, column might not exist:", e);
-        }
-      } catch (caseErr) {
-        console.error("Cases sync error:", caseErr);
-      }
+      // 根據用戶指示，移除所有對 treatment_cases / case_treatments 的調用。
+      // 由於 cases 表沒有 treatment_id 欄位，關聯完全依賴標題匹配。
+      // 因此這裡不需要執行任何資料庫操作來儲存「勾選」狀態。
+      // 勾選狀態會由 fetchData 根據標題一致性自動判斷。
 
       setIsModalOpen(false);
       fetchData(); 
