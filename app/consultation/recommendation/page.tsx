@@ -24,27 +24,12 @@ function RecommendationContent() {
       setLoading(true);
       try {
         // 1. 找出符合分類的療程 ID
-        // 為了避免 400 錯誤 (欄位名稱不匹配)，我們先抓取全量關聯並在前端篩選
-        const [res1, res2] = await Promise.all([
-          supabase.from('treatment_categories').select('*'),
-          supabase.from('treatment_improvement_categories').select('*')
-        ]);
-
-        const r1 = (res1.data || []).map(r => ({
-          t_id: r.treatment_id,
-          c_id: r.category_id || r.improvement_category_id
-        }));
+        const { data: relData } = await supabase.from('treatment_improvement_categories').select('treatment_id, category_id');
         
-        const r2 = (res2.data || []).map(r => ({
-          t_id: r.treatment_id,
-          c_id: r.improvement_category_id || r.category_id
-        }));
-
-        const allRels = [...r1, ...r2];
         const treatmentIds = Array.from(new Set(
-          allRels
-            .filter(r => cats.includes(r.c_id))
-            .map(r => r.t_id)
+          (relData || [])
+            .filter(r => cats.includes(r.category_id))
+            .map(r => r.treatment_id)
         ));
 
         console.log("Recommended Treatment IDs:", treatmentIds);

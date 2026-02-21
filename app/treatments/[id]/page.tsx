@@ -44,24 +44,7 @@ export default function TreatmentDetailPage() {
           associatedCases = [...casesData];
         }
 
-        // 策略 2: 嘗試從關聯表抓取 (many-to-many 模式)
-        const relTables = ['case_treatments', 'treatment_cases'];
-        for (const table of relTables) {
-          const { data: rels } = await supabase
-            .from(table)
-            .select('case_id')
-            .eq('treatment_id', id);
-          
-          if (rels && rels.length > 0) {
-            const caseIds = rels.map(r => r.case_id || (r as any).id);
-            const { data: casesDataRel } = await supabase.from('cases').select('*').in('id', caseIds);
-            if (casesDataRel) {
-              associatedCases = [...associatedCases, ...casesDataRel];
-            }
-          }
-        }
-
-        // 策略 3: 標題精確匹配 (這是用戶特別要求的備案)
+        // 策略 2: 標題精確匹配 (這是用戶特別要求的備案)
         if (data?.title) {
           const { data: titleMatched } = await supabase
             .from('cases')

@@ -119,26 +119,11 @@ export default function TreatmentListPage() {
       // 4. 抓取關聯
       let relations: any[] = [];
       try {
-        const [rel1, rel2] = await Promise.all([
-          supabase.from('treatment_improvement_categories').select('*'),
-          supabase.from('treatment_categories').select('*')
-        ]);
-
-        const r1 = (rel1.data || []).map(r => ({
+        const { data: relData } = await supabase.from('treatment_improvement_categories').select('treatment_id, category_id');
+        relations = (relData || []).map(r => ({
           treatment_id: r.treatment_id,
-          improvement_category_id: r.improvement_category_id || r.category_id
+          category_id: r.category_id
         }));
-        
-        const r2 = (rel2.data || []).map(r => ({
-          treatment_id: r.treatment_id,
-          improvement_category_id: r.category_id || r.improvement_category_id
-        }));
-        
-        const combined = [...r1, ...r2];
-        relations = combined.filter((v, i, a) => 
-          v.treatment_id && v.improvement_category_id &&
-          a.findIndex(item => item.treatment_id === v.treatment_id && item.improvement_category_id === v.improvement_category_id) === i
-        );
       } catch (relErr) {
         console.error("Fetch relations error:", relErr);
       }
@@ -152,37 +137,18 @@ export default function TreatmentListPage() {
       if (casesError) console.error("Fetch cases error:", casesError);
       setAllCases(casesData || []);
 
-      // 6. 抓取案例與療程關聯
-      let caseRels: any[] = [];
-      try {
-        const [res1, res2] = await Promise.all([
-          supabase.from('case_treatments').select('*'),
-          supabase.from('treatment_cases').select('*')
-        ]);
-        
-        const r1 = (res1.data || []).map(r => ({ treatment_id: r.treatment_id, case_id: r.case_id || r.id }));
-        const r2 = (res2.data || []).map(r => ({ treatment_id: r.treatment_id, case_id: r.case_id || r.id }));
-        
-        caseRels = [...r1, ...r2];
-      } catch (err) {
-        console.error("Fetch case relations error:", err);
-      }
-
+      // 6. 抓取案例與療程關聯 (僅依賴 cases 表的 treatment_id 或標題匹配)
       const finalTData = (tData || []).map(t => {
         const tRelations = relations.filter(r => r.treatment_id === t.id);
         const tCategories = tRelations.map(r => {
-          const foundCat = categoriesList.find(catItem => catItem.id === r.improvement_category_id);
+          const foundCat = categoriesList.find(catItem => catItem.id === r.category_id);
           return foundCat ? foundCat.name : null;
         }).filter(Boolean);
 
         // 收集關聯的案例 ID
-        const tCaseIds = Array.from(new Set([
-          ...(caseRels || []).filter(r => r.treatment_id === t.id).map(r => r.case_id),
-          ...(casesData || []).filter(c => 
-            c.treatment_id === t.id || 
-            (c.title && t.title && c.title.trim() === t.title.trim())
-          ).map(c => c.id)
-        ]));
+        const tCaseIds = (casesData || [])
+          .filter(c => c.treatment_id === t.id || (c.title && t.title && c.title.trim() === t.title.trim()))
+          .map(c => c.id);
 
         return {
           ...t,
@@ -234,12 +200,7 @@ export default function TreatmentListPage() {
   const handleDeleteCase = async (id: string) => {
     if (!confirm('確定要刪除此案例？此動作無法復原。')) return;
     try {
-      // 1. 刪除關聯
-      await Promise.allSettled([
-        supabase.from('case_treatments').delete().eq('case_id', id),
-        supabase.from('treatment_cases').delete().eq('case_id', id)
-      ]);
-      // 2. 刪除案例
+      // 刪除案例
       const { error } = await supabase.from('cases').delete().eq('id', id);
       if (error) throw error;
       
@@ -392,36 +353,15 @@ export default function TreatmentListPage() {
       // 第三步：同步改善項目關聯
       try {
         // 刪除舊關聯
-        await Promise.allSettled([
-          supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId),
-          supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId)
-        ]);
+        await supabase.from('treatment_improvement_categories').delete().eq('treatment_id', treatmentId);
         
         if (selectedCategoryIds.length > 0) {
-          // 嘗試多種可能的欄位組合以應對 Schema 差異
-          const tryInsert = async (tableName: string, colName: string) => {
-            const rels = selectedCategoryIds.map(cid => ({
-              treatment_id: treatmentId,
-              [colName]: cid
-            }));
-            return await supabase.from(tableName).insert(rels);
-          };
-
-          // 1. 嘗試 treatment_improvement_categories (improvement_category_id)
-          const res1 = await tryInsert('treatment_improvement_categories', 'improvement_category_id');
-          
-          if (res1.error) {
-            console.warn("Insert to treatment_improvement_categories (improvement_category_id) failed, trying category_id", res1.error);
-            // 2. 嘗試 treatment_improvement_categories (category_id)
-            const res2 = await tryInsert('treatment_improvement_categories', 'category_id');
-            
-            if (res2.error) {
-              console.warn("Insert to treatment_improvement_categories (category_id) failed, trying treatment_categories", res2.error);
-              // 3. 嘗試 treatment_categories (category_id)
-              const res3 = await tryInsert('treatment_categories', 'category_id');
-              if (res3.error) console.error("All relation inserts failed", res3.error);
-            }
-          }
+          const rels = selectedCategoryIds.map(cid => ({
+            treatment_id: treatmentId,
+            category_id: cid
+          }));
+          const { error } = await supabase.from('treatment_improvement_categories').insert(rels);
+          if (error) console.error("Insert categories error:", error);
         }
       } catch (cErr) {
         console.error("Categories sync error:", cErr);
@@ -429,7 +369,7 @@ export default function TreatmentListPage() {
 
       // 第四步：同步案例關聯
       try {
-        // 1. 嘗試更新 cases 表 (1-to-many 模式) - 僅在欄位存在時有效
+        // 嘗試更新 cases 表 (1-to-many 模式) - 僅在欄位存在時有效
         try {
           await supabase.from('cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
           if (selectedCaseIds.length > 0) {
@@ -437,23 +377,6 @@ export default function TreatmentListPage() {
           }
         } catch (e) {
           console.warn("Update cases.treatment_id failed, column might not exist:", e);
-        }
-
-        // 2. 嘗試更新關聯表 (many-to-many 模式)
-        const relTables = ['case_treatments', 'treatment_cases'];
-        for (const table of relTables) {
-          try {
-            await supabase.from(table).delete().eq('treatment_id', treatmentId);
-            if (selectedCaseIds.length > 0) {
-              const caseRels = selectedCaseIds.map(cid => ({
-                treatment_id: treatmentId,
-                case_id: cid
-              }));
-              await supabase.from(table).insert(caseRels);
-            }
-          } catch (e) {
-            console.warn(`Failed to sync table ${table}:`, e);
-          }
         }
       } catch (caseErr) {
         console.error("Cases sync error:", caseErr);
@@ -496,7 +419,7 @@ export default function TreatmentListPage() {
       setSortOrder(t.sort_order || 0);
       setIconName(t.icon_name || 'Sparkles');
       
-      const categoryIds = t.treatment_improvement_categories?.map((rel: any) => rel.improvement_category_id) || [];
+      const categoryIds = t.treatment_improvement_categories?.map((rel: any) => rel.category_id) || [];
       setSelectedCategoryIds(categoryIds);
 
       setSelectedCaseIds(t.case_ids || []);

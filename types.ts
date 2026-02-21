@@ -38,6 +38,6 @@ export interface Treatment {
   sort_order: number;
   is_active: boolean;
   treatment_price_options?: TreatmentPriceOption[];
-  treatment_improvement_categories?: { improvement_category_id: string }[];
+  treatment_improvement_categories?: { category_id: string }[];
   treatment_cases?: TreatmentCase[];
 }
