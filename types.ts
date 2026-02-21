@@ -24,7 +24,9 @@ export interface TreatmentCase {
   treatment_id: string;
   title: string;
   description: string;
-  image_path: string;
+  before_image_url?: string;
+  after_image_url?: string;
+  image_path?: string;
   sort_order: number;
 }
 

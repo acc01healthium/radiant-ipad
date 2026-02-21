@@ -66,10 +66,14 @@ export default function TreatmentListPage() {
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [caseTitle, setCaseTitle] = useState('');
   const [caseDescription, setCaseDescription] = useState('');
-  const [caseImageFile, setCaseImageFile] = useState<File | null>(null);
-  const [caseImagePreview, setCaseImagePreview] = useState<string | null>(null);
-  const [caseExistingImagePath, setCaseExistingImagePath] = useState<string | null>(null);
-  const caseFileInputRef = useRef<HTMLInputElement>(null);
+  const [caseBeforeImageFile, setCaseBeforeImageFile] = useState<File | null>(null);
+  const [caseBeforeImagePreview, setCaseBeforeImagePreview] = useState<string | null>(null);
+  const [caseAfterImageFile, setCaseAfterImageFile] = useState<File | null>(null);
+  const [caseAfterImagePreview, setCaseAfterImagePreview] = useState<string | null>(null);
+  const [caseExistingBeforePath, setCaseExistingBeforePath] = useState<string | null>(null);
+  const [caseExistingAfterPath, setCaseExistingAfterPath] = useState<string | null>(null);
+  const caseBeforeInputRef = useRef<HTMLInputElement>(null);
+  const caseAfterInputRef = useRef<HTMLInputElement>(null);
   const [savingCase, setSavingCase] = useState(false);
 
   // 圖片相關
@@ -145,26 +149,18 @@ export default function TreatmentListPage() {
 
       // 5. 抓取案例清單
       const { data: casesData, error: casesError } = await supabase
-        .from('cases')
+        .from('treatment_cases')
         .select('*')
         .order('id', { ascending: false });
       
       if (casesError) console.error("Fetch cases error:", casesError);
       setAllCases(casesData || []);
 
-      // 6. 抓取案例與療程關聯
+      // 6. 抓取案例與療程關聯 (如果有的話)
       let caseRels: any[] = [];
       try {
-        // 嘗試從多個可能的表抓取關聯
-        const [res1, res2] = await Promise.all([
-          supabase.from('case_treatments').select('*'),
-          supabase.from('treatment_cases').select('*')
-        ]);
-        
-        const r1 = (res1.data || []).map(r => ({ treatment_id: r.treatment_id, case_id: r.case_id || r.id }));
-        const r2 = (res2.data || []).map(r => ({ treatment_id: r.treatment_id, case_id: r.case_id || r.id }));
-        
-        caseRels = [...r1, ...r2];
+        const { data: res1 } = await supabase.from('case_treatments').select('*');
+        caseRels = (res1 || []).map(r => ({ treatment_id: r.treatment_id, case_id: r.case_id }));
       } catch (err) {
         console.error("Fetch case relations error:", err);
       }
@@ -216,16 +212,21 @@ export default function TreatmentListPage() {
       setEditingCaseId(c.id);
       setCaseTitle(c.title || '');
       setCaseDescription(c.description || '');
-      setCaseImagePreview(c.image_url || null);
-      setCaseExistingImagePath(c.image_url || null);
+      setCaseBeforeImagePreview(c.before_image_url || null);
+      setCaseAfterImagePreview(c.after_image_url || null);
+      setCaseExistingBeforePath(c.before_image_url || null);
+      setCaseExistingAfterPath(c.after_image_url || null);
     } else {
       setEditingCaseId(null);
       setCaseTitle('');
       setCaseDescription('');
-      setCaseImagePreview(null);
-      setCaseExistingImagePath(null);
+      setCaseBeforeImagePreview(null);
+      setCaseAfterImagePreview(null);
+      setCaseExistingBeforePath(null);
+      setCaseExistingAfterPath(null);
     }
-    setCaseImageFile(null);
+    setCaseBeforeImageFile(null);
+    setCaseAfterImageFile(null);
     setIsCaseModalOpen(true);
   };
 
@@ -235,11 +236,8 @@ export default function TreatmentListPage() {
       // 1. 刪除關聯
       await Promise.allSettled([
         supabase.from('case_treatments').delete().eq('case_id', id),
-        supabase.from('treatment_cases').delete().eq('case_id', id)
+        supabase.from('treatment_cases').delete().eq('id', id)
       ]);
-      // 2. 刪除案例
-      const { error } = await supabase.from('cases').delete().eq('id', id);
-      if (error) throw error;
       
       setIsCaseModalOpen(false);
       fetchData();
@@ -254,48 +252,48 @@ export default function TreatmentListPage() {
     if (savingCase) return;
     setSavingCase(true);
     try {
-      let finalImageUrl = caseExistingImagePath;
+      let finalBeforeUrl = caseExistingBeforePath;
+      let finalAfterUrl = caseExistingAfterPath;
 
-      if (caseImageFile) {
-        try {
-          const fileName = `case-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
-          const path = `cases/${fileName}`;
-          const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseImageFile, { contentType: 'image/webp', upsert: true });
-          
-          if (uploadErr) {
-            console.error("Case Image Upload Error:", uploadErr);
-            alert("圖片上傳失敗 (54001)，將僅儲存文字內容。");
-          } else {
-            const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
-            finalImageUrl = publicUrlData.publicUrl;
-          }
-        } catch (uploadErr) {
-          console.error("Case Image Upload Exception:", uploadErr);
+      // 上傳術前照
+      if (caseBeforeImageFile) {
+        const fileName = `before-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const path = `cases/${fileName}`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseBeforeImageFile, { contentType: 'image/webp', upsert: true });
+        if (!uploadErr) {
+          const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
+          finalBeforeUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      // 上傳術後照
+      if (caseAfterImageFile) {
+        const fileName = `after-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const path = `cases/${fileName}`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage.from('icons').upload(path, caseAfterImageFile, { contentType: 'image/webp', upsert: true });
+        if (!uploadErr) {
+          const { data: publicUrlData } = supabase.storage.from('icons').getPublicUrl(uploadData.path);
+          finalAfterUrl = publicUrlData.publicUrl;
         }
       }
 
       const casePayload: any = {
         title: caseTitle.trim(),
         description: caseDescription.trim(),
-        image_url: finalImageUrl,
+        before_image_url: finalBeforeUrl,
+        after_image_url: finalAfterUrl,
+        treatment_id: editingId, // 確保新增案例時就關聯到當前療程
       };
 
       if (editingCaseId) {
-        const { error } = await supabase.from('cases').update(casePayload).eq('id', editingCaseId);
-        if (error) {
-          console.error("Case Update Error:", error);
-          if ((error as any).code === '54001') {
-            // 嘗試最小化更新
-            await supabase.from('cases').update({ title: caseTitle.trim() }).eq('id', editingCaseId);
-          } else {
-            throw error;
-          }
-        }
+        const { error } = await supabase.from('treatment_cases').update(casePayload).eq('id', editingCaseId);
+        if (error) throw error;
       } else {
-        const { data, error } = await supabase.from('cases').insert([casePayload]).select('id').single();
+        const { data, error } = await supabase.from('treatment_cases').insert([casePayload]).select('id').single();
         if (error) throw error;
         if (data) {
-          setSelectedCaseIds(prev => [...prev, data.id]);
+          // 確保新案例被選中
+          setSelectedCaseIds(prev => Array.from(new Set([...prev, data.id])));
         }
       }
 
@@ -344,18 +342,29 @@ export default function TreatmentListPage() {
       let treatmentId = editingId;
 
       if (editingId) {
-        const { error: tError } = await supabase
-          .from('treatments')
-          .update(treatmentPayload)
-          .eq('id', editingId);
-        
-        if (tError) {
-          console.error("Treatment Update Error:", tError);
-          if (tError.code === '54001') {
-            // 嘗試最小化更新
-            await supabase.from('treatments').update({ title: title.trim() }).eq('id', editingId);
-          } else {
-            throw tError;
+        // 檢查是否有實質變動，避免觸發資料庫遞迴更新 (stack depth limit 54001)
+        const current = treatments.find(t => t.id === editingId);
+        const hasChanged = !current || (
+          current.title !== treatmentPayload.title ||
+          current.description !== treatmentPayload.description ||
+          current.sort_order !== treatmentPayload.sort_order ||
+          current.image_url !== treatmentPayload.image_url
+        );
+
+        if (hasChanged) {
+          const { error: tError } = await supabase
+            .from('treatments')
+            .update(treatmentPayload)
+            .eq('id', editingId);
+          
+          if (tError) {
+            console.error("Treatment Update Error:", tError);
+            if (tError.code === '54001') {
+              // 嘗試最小化更新，僅更新標題
+              await supabase.from('treatments').update({ title: title.trim() }).eq('id', editingId);
+            } else {
+              throw tError;
+            }
           }
         }
       } else {
@@ -430,24 +439,21 @@ export default function TreatmentListPage() {
 
       // 第四步：同步案例關聯
       try {
-        // 1. 嘗試更新 cases 表 (1-to-many 模式)
-        await supabase.from('cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
+        // 1. 嘗試更新 treatment_cases 表 (1-to-many 模式)
+        await supabase.from('treatment_cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
         if (selectedCaseIds.length > 0) {
-          await supabase.from('cases').update({ treatment_id: treatmentId }).in('id', selectedCaseIds);
+          await supabase.from('treatment_cases').update({ treatment_id: treatmentId }).in('id', selectedCaseIds);
         }
 
         // 2. 嘗試更新關聯表 (many-to-many 模式)
-        const relTables = ['case_treatments', 'treatment_cases'];
+        const relTables = ['case_treatments'];
         for (const table of relTables) {
-          // 先刪除舊關聯
           await supabase.from(table).delete().eq('treatment_id', treatmentId);
-          
           if (selectedCaseIds.length > 0) {
             const caseRels = selectedCaseIds.map(cid => ({
               treatment_id: treatmentId,
               case_id: cid
             }));
-            // 嘗試寫入，忽略錯誤 (因為可能不是關聯表)
             await supabase.from(table).insert(caseRels);
           }
         }
@@ -529,6 +535,13 @@ export default function TreatmentListPage() {
     setImageFile(null);
     setIsModalOpen(true);
   };
+
+  const [caseSearch, setCaseSearch] = useState('');
+
+  const filteredCases = allCases.filter(c => 
+    c.title?.toLowerCase().includes(caseSearch.toLowerCase()) ||
+    c.description?.toLowerCase().includes(caseSearch.toLowerCase())
+  );
 
   return (
     <div className="space-y-10">
@@ -670,16 +683,24 @@ export default function TreatmentListPage() {
 
                 <section className="bg-gray-50/50 p-8 rounded-[2.5rem] border border-gray-100">
                   <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><LucideIcons.Camera size={18}/> 術前術後案例關聯</h4>
+                    <div className="flex flex-col gap-1">
+                      <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><LucideIcons.Camera size={18}/> 術前術後案例關聯</h4>
+                      <input 
+                        placeholder="搜尋案例標題..." 
+                        value={caseSearch} 
+                        onChange={e => setCaseSearch(e.target.value)}
+                        className="text-[10px] border-b bg-transparent outline-none focus:border-clinic-gold w-40"
+                      />
+                    </div>
                     <button type="button" onClick={() => openCaseModal()} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest hover:underline"><PlusCircle size={20}/> 新增案例</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allCases.length === 0 ? (
+                    {filteredCases.length === 0 ? (
                       <div className="col-span-full p-10 text-center text-gray-300 font-bold italic border-2 border-dashed rounded-3xl">
-                        目前尚無案例資料
+                        {caseSearch ? '找不到符合搜尋的案例' : '目前尚無案例資料'}
                       </div>
                     ) : (
-                      allCases.map(c => (
+                      filteredCases.map(c => (
                         <div 
                           key={c.id} 
                           className={`p-4 rounded-3xl border-2 transition-all flex gap-4 items-center relative group ${
@@ -690,8 +711,8 @@ export default function TreatmentListPage() {
                         >
                           <div onClick={() => toggleCase(c.id)} className="absolute inset-0 z-0 cursor-pointer"></div>
                           <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border relative z-10">
-                            {(c.image_url || c.image_path) ? (
-                              <img src={c.image_url || c.image_path} className="w-full h-full object-cover" alt="" />
+                            {(c.before_image_url || c.image_url || c.image_path) ? (
+                              <img src={c.before_image_url || c.image_url || c.image_path} className="w-full h-full object-cover" alt="" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-gray-300">
                                 <LucideIcons.Image size={24} />
@@ -753,33 +774,64 @@ export default function TreatmentListPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">案例圖片</label>
-                  <div 
-                    onClick={() => caseFileInputRef.current?.click()} 
-                    className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 transition-all"
-                  >
-                    {caseImagePreview ? (
-                      <img src={caseImagePreview} className="w-full h-full object-cover" alt="" />
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 text-gray-300">
-                        <UploadCloud size={48} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">點擊上傳</span>
-                      </div>
-                    )}
-                    <input 
-                      ref={caseFileInputRef} 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setCaseImageFile(file);
-                          setCaseImagePreview(URL.createObjectURL(file));
-                        }
-                      }} 
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">術前照片</label>
+                    <div 
+                      onClick={() => caseBeforeInputRef.current?.click()} 
+                      className="w-full aspect-[3/4] bg-gray-50 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 transition-all"
+                    >
+                      {caseBeforeImagePreview ? (
+                        <img src={caseBeforeImagePreview} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-gray-300">
+                          <UploadCloud size={32} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">術前</span>
+                        </div>
+                      )}
+                      <input 
+                        ref={caseBeforeInputRef} 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setCaseBeforeImageFile(file);
+                            setCaseBeforeImagePreview(URL.createObjectURL(file));
+                          }
+                        }} 
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">術後照片</label>
+                    <div 
+                      onClick={() => caseAfterInputRef.current?.click()} 
+                      className="w-full aspect-[3/4] bg-gray-50 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden group hover:border-clinic-gold/30 transition-all"
+                    >
+                      {caseAfterImagePreview ? (
+                        <img src={caseAfterImagePreview} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-gray-300">
+                          <UploadCloud size={32} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">術後</span>
+                        </div>
+                      )}
+                      <input 
+                        ref={caseAfterInputRef} 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setCaseAfterImageFile(file);
+                            setCaseAfterImagePreview(URL.createObjectURL(file));
+                          }
+                        }} 
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
