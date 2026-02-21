@@ -39,5 +39,5 @@ export interface Treatment {
   is_active: boolean;
   treatment_price_options?: TreatmentPriceOption[];
   treatment_improvement_categories?: { category_id: string }[];
-  treatment_cases?: TreatmentCase[];
+  case_ids?: string[];
 }

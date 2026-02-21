@@ -116,7 +116,7 @@ export default function TreatmentListPage() {
 
       if (pError) console.error("Fetch prices error:", pError);
 
-      // 4. 抓取關聯
+      // 4. 抓取改善項目關聯
       let relations: any[] = [];
       try {
         const { data: relData } = await supabase.from('treatment_improvement_categories').select('treatment_id, category_id');
@@ -125,7 +125,16 @@ export default function TreatmentListPage() {
           category_id: r.category_id
         }));
       } catch (relErr) {
-        console.error("Fetch relations error:", relErr);
+        console.error("Fetch improvement relations error:", relErr);
+      }
+
+      // 4.5 抓取案例關聯 (使用 treatment_categories 作為關聯表)
+      let caseRelations: any[] = [];
+      try {
+        const { data: cRelData } = await supabase.from('treatment_categories').select('treatment_id, case_id');
+        caseRelations = cRelData || [];
+      } catch (err) {
+        console.error("Fetch case relations error:", err);
       }
 
       // 5. 抓取案例清單
@@ -137,7 +146,7 @@ export default function TreatmentListPage() {
       if (casesError) console.error("Fetch cases error:", casesError);
       setAllCases(casesData || []);
 
-      // 6. 抓取案例與療程關聯 (僅依賴 cases 表的 treatment_id 或標題匹配)
+      // 6. 建立最終療程資料
       const finalTData = (tData || []).map(t => {
         const tRelations = relations.filter(r => r.treatment_id === t.id);
         const tCategories = tRelations.map(r => {
@@ -145,10 +154,11 @@ export default function TreatmentListPage() {
           return foundCat ? foundCat.name : null;
         }).filter(Boolean);
 
-        // 收集關聯的案例 ID
-        const tCaseIds = (casesData || [])
-          .filter(c => c.title && t.title && c.title.trim() === t.title.trim())
-          .map(c => c.id);
+        // 收集關聯的案例 ID (優先使用關聯表，標題匹配作為備案)
+        const tCaseIds = Array.from(new Set([
+          ...(caseRelations || []).filter(r => r.treatment_id === t.id).map(r => r.case_id),
+          ...(casesData || []).filter(c => c.title && t.title && c.title.trim() === t.title.trim()).map(c => c.id)
+        ]));
 
         return {
           ...t,
@@ -369,10 +379,21 @@ export default function TreatmentListPage() {
       }
 
       // 第四步：同步案例關聯
-      // 根據用戶指示，移除所有對 treatment_cases / case_treatments 的調用。
-      // 由於 cases 表沒有 treatment_id 欄位，關聯完全依賴標題匹配。
-      // 因此這裡不需要執行任何資料庫操作來儲存「勾選」狀態。
-      // 勾選狀態會由 fetchData 根據標題一致性自動判斷。
+      try {
+        // 使用 treatment_categories 作為案例與療程的關聯表
+        await supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId);
+        
+        if (selectedCaseIds.length > 0) {
+          const caseRels = selectedCaseIds.map(cid => ({
+            treatment_id: treatmentId,
+            case_id: cid
+          }));
+          const { error } = await supabase.from('treatment_categories').insert(caseRels);
+          if (error) console.error("Insert case relations error:", error);
+        }
+      } catch (caseErr) {
+        console.error("Cases sync error:", caseErr);
+      }
 
       setIsModalOpen(false);
       fetchData(); 

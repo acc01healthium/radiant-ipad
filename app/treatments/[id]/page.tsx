@@ -35,7 +35,21 @@ export default function TreatmentDetailPage() {
       let associatedCases: any[] = [];
       
       try {
-        // 策略 1: 標題精確匹配 (這是目前最可靠的關聯方式)
+        // 策略 1: 嘗試從 treatment_categories 關聯表抓取 (這是目前的主流關聯方式)
+        const { data: rels } = await supabase
+          .from('treatment_categories')
+          .select('case_id')
+          .eq('treatment_id', id);
+        
+        if (rels && rels.length > 0) {
+          const caseIds = rels.map(r => r.case_id);
+          const { data: casesDataRel } = await supabase.from('cases').select('*').in('id', caseIds);
+          if (casesDataRel) {
+            associatedCases = [...casesDataRel];
+          }
+        }
+
+        // 策略 2: 標題精確匹配 (備案)
         if (data?.title) {
           const { data: titleMatched } = await supabase
             .from('cases')
@@ -43,11 +57,11 @@ export default function TreatmentDetailPage() {
             .eq('title', data.title.trim());
           
           if (titleMatched && titleMatched.length > 0) {
-            associatedCases = [...titleMatched];
+            associatedCases = [...associatedCases, ...titleMatched];
           }
         }
 
-        // 策略 2: 嘗試從 cases 表抓取 (備案，以防未來新增了 treatment_id 欄位)
+        // 策略 3: 嘗試從 cases 表抓取 (備案，以防未來新增了 treatment_id 欄位)
         try {
           const { data: casesData } = await supabase
             .from('cases')
