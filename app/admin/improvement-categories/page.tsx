@@ -91,10 +91,9 @@ export default function CategoriesAdminPage() {
         sort_order: Number(sortOrder), 
       };
 
-      // 同時嘗試多個可能的圖片欄位名稱以確保相容性
+      // 僅使用 icon_image_path，移除可能導致 400 錯誤的 image_url
       if (finalImagePath) {
         payload.icon_image_path = finalImagePath;
-        payload.image_url = finalImagePath;
       }
 
       const { error } = editingId 
