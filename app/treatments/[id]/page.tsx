@@ -35,38 +35,40 @@ export default function TreatmentDetailPage() {
       let associatedCases: any[] = [];
       
       try {
-        // 策略 1: 優先從 treatment_cases 表抓取 (1-to-many 模式，這是目前的主流模式)
+        // 策略 1: 嘗試從 cases 表抓取 (1-to-many 模式)
         const { data: casesData } = await supabase
-          .from('treatment_cases')
+          .from('cases')
           .select('*')
           .eq('treatment_id', id);
         if (casesData && casesData.length > 0) {
           associatedCases = [...casesData];
         }
 
-        // 策略 2: 嘗試從 case_treatments 關聯表抓取 (many-to-many 模式)
-        const { data: rels1 } = await supabase
-          .from('case_treatments')
-          .select('case_id')
-          .eq('treatment_id', id);
-        
-        if (rels1 && rels1.length > 0) {
-          const caseIds = rels1.map(r => r.case_id);
-          const { data: casesDataRel } = await supabase.from('treatment_cases').select('*').in('id', caseIds);
-          if (casesDataRel) {
-            associatedCases = [...associatedCases, ...casesDataRel];
+        // 策略 2: 嘗試從關聯表抓取 (many-to-many 模式)
+        const relTables = ['case_treatments', 'treatment_cases'];
+        for (const table of relTables) {
+          const { data: rels } = await supabase
+            .from(table)
+            .select('case_id')
+            .eq('treatment_id', id);
+          
+          if (rels && rels.length > 0) {
+            const caseIds = rels.map(r => r.case_id || (r as any).id);
+            const { data: casesDataRel } = await supabase.from('cases').select('*').in('id', caseIds);
+            if (casesDataRel) {
+              associatedCases = [...associatedCases, ...casesDataRel];
+            }
           }
         }
 
-        // 策略 3: 標題精確匹配 (僅作為最後備案，且必須標題完全一致或包含療程名稱)
+        // 策略 3: 標題精確匹配 (僅作為最後備案)
         if (associatedCases.length === 0 && data?.title) {
           const { data: titleMatched } = await supabase
-            .from('treatment_cases')
+            .from('cases')
             .select('*')
             .or(`title.ilike.%${data.title}%,description.ilike.%${data.title}%`);
           
           if (titleMatched) {
-            // 過濾掉已經有 treatment_id 且不是當前療程的案例
             const filteredTitleMatched = titleMatched.filter(c => !c.treatment_id || c.treatment_id === id);
             associatedCases = [...associatedCases, ...filteredTitleMatched];
           }
@@ -101,7 +103,7 @@ export default function TreatmentDetailPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative h-[45vh] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
+      <div className="relative h-[35vh] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
         {imageUrl ? (
           <img src={imageUrl} alt={treatment.title} className="w-full h-full object-cover" />
         ) : (
@@ -165,29 +167,14 @@ export default function TreatmentDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {treatment.cases.map((c: any) => (
               <div key={c.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border group hover:shadow-2xl transition-all">
-                <div className="aspect-[4/3] overflow-hidden bg-gray-100 flex">
-                  {/* 術前 */}
-                  <div className="flex-1 relative border-r border-white/20">
-                    {c.before_image_url ? (
-                      <img src={c.before_image_url} alt="Before" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-200 bg-gray-50">
-                        <span className="text-[10px] font-black uppercase tracking-widest">術前</span>
-                      </div>
-                    )}
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest backdrop-blur-sm">Before</div>
-                  </div>
-                  {/* 術後 */}
-                  <div className="flex-1 relative">
-                    {(c.after_image_url || c.image_url || c.image_path) ? (
-                      <img src={c.after_image_url || c.image_url || c.image_path} alt="After" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-200 bg-gray-50">
-                        <span className="text-[10px] font-black uppercase tracking-widest">術後</span>
-                      </div>
-                    )}
-                    <div className="absolute top-2 right-2 bg-clinic-gold/80 text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest backdrop-blur-sm">After</div>
-                  </div>
+                <div className="aspect-[4/3] overflow-hidden bg-gray-100">
+                  {(c.image_url || c.image_path || c.before_image_url) ? (
+                    <img src={c.image_url || c.image_path || c.before_image_url} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-200">
+                      <LucideImage size={64} />
+                    </div>
+                  )}
                 </div>
                 <div className="p-8">
                   <h3 className="text-xl font-black text-gray-800 mb-2 truncate">{c.title}</h3>

@@ -80,9 +80,9 @@ export default function CategoriesAdminPage() {
       if (iconImageFile) {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
         const path = `improvement-categories/${fileName}`;
-        const { data: uploadData, error } = await supabase.storage.from('icons').upload(path, iconImageFile, { contentType: 'image/webp' });
+        const { data: uploadData, error } = await supabase.storage.from('icons').upload(path, iconImageFile, { contentType: 'image/webp', upsert: true });
         if (error) throw error;
-        finalImagePath = uploadData.path;
+        finalImagePath = path; // 使用我們定義的完整路徑
       }
 
       const payload = { 
