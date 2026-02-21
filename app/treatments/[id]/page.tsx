@@ -31,56 +31,83 @@ export default function TreatmentDetailPage() {
       
       if (error) throw error;
 
-      // 抓取關聯案例
-      let associatedCases: any[] = [];
+     // 抓取關聯案例
+let associatedCases: any[] = [];
+
+try {
+  // 策略 1: 從新表 treatment_case_relations 抓取 (主要關聯方式)
+  const { data: rels } = await supabase
+    .from('treatment_case_relations')  // ← 改這裡！
+    .select('case_id')
+    .eq('treatment_id', id)
+    .eq('is_active', true)
+    .order('display_order');
+  
+  if (rels && rels.length > 0) {
+    const caseIds = rels.map(r => r.case_id);
+    const { data: casesDataRel } = await supabase
+      .from('cases')
+      .select('*')
+      .in('id', caseIds);
+    
+    if (casesDataRel) {
+      associatedCases = [...casesDataRel];
+    }
+  }
+
+  // 策略 2: 從舊表 treatment_categories 抓取 (相容舊資料)
+  if (associatedCases.length === 0) {
+    const { data: oldRels } = await supabase
+      .from('treatment_categories')
+      .select('case_id')
+      .eq('treatment_id', id);
+    
+    if (oldRels && oldRels.length > 0) {
+      const oldCaseIds = oldRels.map(r => r.case_id);
+      const { data: oldCasesData } = await supabase
+        .from('cases')
+        .select('*')
+        .in('id', oldCaseIds);
       
-      try {
-        // 策略 1: 嘗試從 treatment_categories 關聯表抓取 (這是目前的主流關聯方式)
-        const { data: rels } = await supabase
-          .from('treatment_categories')
-          .select('case_id')
-          .eq('treatment_id', id);
-        
-        if (rels && rels.length > 0) {
-          const caseIds = rels.map(r => r.case_id);
-          const { data: casesDataRel } = await supabase.from('cases').select('*').in('id', caseIds);
-          if (casesDataRel) {
-            associatedCases = [...casesDataRel];
-          }
-        }
-
-        // 策略 2: 標題精確匹配 (備案)
-        if (data?.title) {
-          const { data: titleMatched } = await supabase
-            .from('cases')
-            .select('*')
-            .eq('title', data.title.trim());
-          
-          if (titleMatched && titleMatched.length > 0) {
-            associatedCases = [...associatedCases, ...titleMatched];
-          }
-        }
-
-        // 策略 3: 嘗試從 cases 表抓取 (備案，以防未來新增了 treatment_id 欄位)
-        try {
-          const { data: casesData } = await supabase
-            .from('cases')
-            .select('*')
-            .eq('treatment_id', id);
-          if (casesData && casesData.length > 0) {
-            associatedCases = [...associatedCases, ...casesData];
-          }
-        } catch (e) {
-          // 忽略欄位不存在的錯誤
-        }
-
-        // 去重
-        associatedCases = associatedCases.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        console.log("Associated Cases for treatment:", associatedCases);
-      } catch (err) {
-        console.error("Error fetching cases:", err);
+      if (oldCasesData) {
+        associatedCases = [...oldCasesData];
       }
+    }
+  }
 
+  // 策略 3: 標題精確匹配 (備案)
+  if (associatedCases.length === 0 && data?.title) {
+    const { data: titleMatched } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('title', data.title.trim());
+    
+    if (titleMatched && titleMatched.length > 0) {
+      associatedCases = [...associatedCases, ...titleMatched];
+    }
+  }
+
+  // 策略 4: 嘗試從 cases 表抓取 (備案)
+  if (associatedCases.length === 0) {
+    try {
+      const { data: casesData } = await supabase
+        .from('cases')
+        .select('*')
+        .eq('treatment_id', id);
+      if (casesData && casesData.length > 0) {
+        associatedCases = [...associatedCases, ...casesData];
+      }
+    } catch (e) {
+      // 忽略欄位不存在的錯誤
+    }
+  }
+
+  // 去重
+  associatedCases = associatedCases.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+  console.log("Associated Cases for treatment:", associatedCases);
+} catch (err) {
+  console.error("Error fetching cases:", err);
+}
       // 手動排序價格方案
       if (data && data.treatment_price_options) {
         data.treatment_price_options.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price);
