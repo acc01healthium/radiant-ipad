@@ -178,7 +178,10 @@ export default function TreatmentListPage() {
         // 收集關聯的案例 ID
         const tCaseIds = Array.from(new Set([
           ...(caseRels || []).filter(r => r.treatment_id === t.id).map(r => r.case_id),
-          ...(casesData || []).filter(c => c.treatment_id === t.id).map(c => c.id)
+          ...(casesData || []).filter(c => 
+            c.treatment_id === t.id || 
+            (c.title && t.title && c.title.trim() === t.title.trim())
+          ).map(c => c.id)
         ]));
 
         return {
@@ -269,7 +272,8 @@ export default function TreatmentListPage() {
         title: caseTitle.trim(),
         description: caseDescription.trim(),
         image_url: finalImageUrl,
-        treatment_id: editingId, // 關聯到當前療程
+        // 移除 treatment_id，因為 cases 表中可能沒有此欄位
+        // 關聯將透過標題匹配或關聯表處理
       };
 
       if (editingCaseId) {
@@ -425,10 +429,14 @@ export default function TreatmentListPage() {
 
       // 第四步：同步案例關聯
       try {
-        // 1. 嘗試更新 cases 表 (1-to-many 模式)
-        await supabase.from('cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
-        if (selectedCaseIds.length > 0) {
-          await supabase.from('cases').update({ treatment_id: treatmentId }).in('id', selectedCaseIds);
+        // 1. 嘗試更新 cases 表 (1-to-many 模式) - 僅在欄位存在時有效
+        try {
+          await supabase.from('cases').update({ treatment_id: null }).eq('treatment_id', treatmentId);
+          if (selectedCaseIds.length > 0) {
+            await supabase.from('cases').update({ treatment_id: treatmentId }).in('id', selectedCaseIds);
+          }
+        } catch (e) {
+          console.warn("Update cases.treatment_id failed, column might not exist:", e);
         }
 
         // 2. 嘗試更新關聯表 (many-to-many 模式)

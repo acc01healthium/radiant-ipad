@@ -61,16 +61,15 @@ export default function TreatmentDetailPage() {
           }
         }
 
-        // 策略 3: 標題精確匹配 (僅作為最後備案)
-        if (associatedCases.length === 0 && data?.title) {
+        // 策略 3: 標題精確匹配 (這是用戶特別要求的備案)
+        if (data?.title) {
           const { data: titleMatched } = await supabase
             .from('cases')
             .select('*')
-            .or(`title.ilike.%${data.title}%,description.ilike.%${data.title}%`);
+            .eq('title', data.title.trim());
           
-          if (titleMatched) {
-            const filteredTitleMatched = titleMatched.filter(c => !c.treatment_id || c.treatment_id === id);
-            associatedCases = [...associatedCases, ...filteredTitleMatched];
+          if (titleMatched && titleMatched.length > 0) {
+            associatedCases = [...associatedCases, ...titleMatched];
           }
         }
 
@@ -103,7 +102,7 @@ export default function TreatmentDetailPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative h-[35vh] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
+      <div className="relative h-[25vh] min-h-[300px] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
         {imageUrl ? (
           <img src={imageUrl} alt={treatment.title} className="w-full h-full object-cover" />
         ) : (

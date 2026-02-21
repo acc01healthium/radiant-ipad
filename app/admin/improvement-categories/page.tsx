@@ -65,8 +65,7 @@ export default function CategoriesAdminPage() {
 
   const fetchCategories = async () => {
     setLoading(true);
-    // 移除 is_active 查詢
-    const { data } = await supabase.from('improvement_categories').select('id, name, icon_name, description, sort_order, icon_image_path').order('sort_order', { ascending: true });
+    const { data } = await supabase.from('improvement_categories').select('*').order('sort_order', { ascending: true });
     setCategories(data || []);
     setLoading(false);
   };
@@ -85,13 +84,18 @@ export default function CategoriesAdminPage() {
         finalImagePath = path; // 使用我們定義的完整路徑
       }
 
-      const payload = { 
+      const payload: any = { 
         name: name.trim(), 
         icon_name: iconName.trim(),
         description: description.trim(),
         sort_order: Number(sortOrder), 
-        icon_image_path: finalImagePath
       };
+
+      // 同時嘗試多個可能的圖片欄位名稱以確保相容性
+      if (finalImagePath) {
+        payload.icon_image_path = finalImagePath;
+        payload.image_url = finalImagePath;
+      }
 
       const { error } = editingId 
         ? await supabase.from('improvement_categories').update(payload).eq('id', editingId) 
@@ -112,9 +116,10 @@ export default function CategoriesAdminPage() {
       setIconName(cat.icon_name || 'Sparkles');
       setDescription(cat.description || '');
       setSortOrder(cat.sort_order || 0);
-      setExistingImagePath(cat.icon_image_path || null);
-      if (cat.icon_image_path) {
-        const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
+      const imgPath = cat.icon_image_path || cat.image_url || null;
+      setExistingImagePath(imgPath);
+      if (imgPath) {
+        const { data } = supabase.storage.from('icons').getPublicUrl(imgPath);
         setImagePreview(data.publicUrl);
       } else setImagePreview(null);
     } else {
@@ -174,8 +179,8 @@ export default function CategoriesAdminPage() {
                   <td className="p-8 font-mono text-gray-400 font-bold">{c.sort_order}</td>
                   <td className="p-8">
                     <div className="w-16 h-16 rounded-2xl bg-gray-50 border flex items-center justify-center overflow-hidden">
-                      {c.icon_image_path ? (
-                        <img src={supabase.storage.from('icons').getPublicUrl(c.icon_image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+                      { (c.icon_image_path || c.image_url) ? (
+                        <img src={supabase.storage.from('icons').getPublicUrl(c.icon_image_path || c.image_url).data.publicUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <ImageIcon size={24} className="text-gray-300" />
                       )}
