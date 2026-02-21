@@ -128,14 +128,14 @@ export default function TreatmentListPage() {
         console.error("Fetch improvement relations error:", relErr);
       }
 
-      // 4.5 抓取案例關聯 (使用 treatment_categories 作為關聯表)
-      let caseRelations: any[] = [];
-      try {
-        const { data: cRelData } = await supabase.from('treatment_categories').select('treatment_id, case_id');
-        caseRelations = cRelData || [];
-      } catch (err) {
-        console.error("Fetch case relations error:", err);
-      }
+      // 4.5 抓取案例關聯 (使用 treatment_case_relations 作為關聯表)
+let caseRelations: any[] = [];
+try {
+  const { data: cRelData } = await supabase.from('treatment_case_relations').select('treatment_id, case_id');  // ← 改這裡
+  caseRelations = cRelData || [];
+} catch (err) {
+  console.error("Fetch case relations error:", err);
+}
 
       // 5. 抓取案例清單
       const { data: casesData, error: casesError } = await supabase
@@ -378,22 +378,24 @@ export default function TreatmentListPage() {
         console.error("Categories sync error:", cErr);
       }
 
-      // 第四步：同步案例關聯
-      try {
-        // 使用 treatment_categories 作為案例與療程的關聯表
-        await supabase.from('treatment_categories').delete().eq('treatment_id', treatmentId);
-        
-        if (selectedCaseIds.length > 0) {
-          const caseRels = selectedCaseIds.map(cid => ({
-            treatment_id: treatmentId,
-            case_id: cid
-          }));
-          const { error } = await supabase.from('treatment_categories').insert(caseRels);
-          if (error) console.error("Insert case relations error:", error);
-        }
-      } catch (caseErr) {
-        console.error("Cases sync error:", caseErr);
-      }
+      // 第四步：同步案例關聯 - 使用正確的關聯表
+try {
+  // 使用 treatment_case_relations 作為案例與療程的關聯表
+  await supabase.from('treatment_case_relations').delete().eq('treatment_id', treatmentId);
+  
+  if (selectedCaseIds.length > 0) {
+    const caseRels = selectedCaseIds.map((cid, index) => ({
+      treatment_id: treatmentId,
+      case_id: cid,
+      display_order: index,  // 依照勾選順序排序
+      is_active: true
+    }));
+    const { error } = await supabase.from('treatment_case_relations').insert(caseRels);
+    if (error) console.error("Insert case relations error:", error);
+  }
+} catch (caseErr) {
+  console.error("Cases sync error:", caseErr);
+}
 
       setIsModalOpen(false);
       fetchData(); 
