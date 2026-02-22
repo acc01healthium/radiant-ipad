@@ -54,13 +54,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="text-[10px] uppercase tracking-widest text-gray-400">Admin Panel</span>
             </div>
           </div>
-          <nav className="flex-1 p-5 space-y-2">
-            <Link href="/admin" className={navItemClass('/admin')}><LayoutDashboard size={20} /> 控制面板</Link>
-            <Link href="/admin/improvement-categories" className={navItemClass('/admin/improvement-categories')}><Tags size={20} /> 欲改善項目</Link>
-            <Link href="/admin/treatments" className={navItemClass('/admin/treatments')}><Package size={20} /> 療程項目</Link>
-            <Link href="/admin/cases" className={navItemClass('/admin/cases')}><ImageIcon size={20} /> 術前後案例</Link>
-            <Link href="/admin/settings" className={navItemClass('/admin/settings')}><Settings size={20} /> 系統設定</Link>
-          </nav>
+         <nav className="flex-1 p-5 space-y-2">
+  <Link href="/admin" className={navItemClass('/admin')}><LayoutDashboard size={20} /> 控制面板</Link>
+  <Link href="/admin/improvement-categories" className={navItemClass('/admin/improvement-categories')}><Tags size={20} /> 欲改善項目</Link>
+  <Link href="/admin/treatments" className={navItemClass('/admin/treatments')}><Package size={20} /> 療程項目</Link>
+  <Link href="/admin/settings" className={navItemClass('/admin/settings')}><Settings size={20} /> 系統設定</Link>
+</nav>
           <div className="p-6 border-t">
             <button onClick={handleLogout} className="flex items-center gap-3 p-3 w-full text-left rounded-xl text-red-500 hover:bg-red-50 transition-colors font-medium"><LogOut size={20} /> 登出系統</button>
           </div>
