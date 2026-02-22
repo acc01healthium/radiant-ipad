@@ -1,5 +1,6 @@
 'use client';
 
+// tailwind classes: xs:w-7 xs:h-7 xs:w-14 xs:h-14 xs:min-h-[120px] xs:grid-cols-2
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -36,27 +37,32 @@ function ConsultationContent() {
   };
 
   const renderIcon = (cat: any, isSelected: boolean) => {
-    if (cat.icon_image_path) {
-      const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
-      return (
-        <div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 overflow-hidden ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
-          <img src={data.publicUrl} alt={cat.name} className="w-full h-full object-cover" />
-        </div>
-      );
-    }
-
-    const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
+  if (cat.icon_image_path) {
+    const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
     return (
-      <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
-        <Icon size={24} className="xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 ${isSelected ? 'text-clinic-gold' : 'text-gray-300'}" />
+      <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 overflow-hidden ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+        <img src={data.publicUrl} alt={cat.name} className="w-full h-full object-cover" />
       </div>
     );
-  };
+  }
 
+  const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
+  return (
+    <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+      <Icon 
+        size={24} 
+        className={`
+          ${isSelected ? 'text-clinic-gold' : 'text-gray-300'}
+          xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12
+        `} 
+      />
+    </div>
+  );
+};
   if (loading) return <div className="h-screen flex items-center justify-center bg-clinic-cream"><Loader2 className="animate-spin text-clinic-gold" size={48} /></div>;
 
   return (
-    <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-x-hidden bg-pattern">
+  <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-6 md:p-10 relative overflow-x-hidden bg-pattern">
       <header className="flex items-center justify-between mb-8 z-10 shrink-0">
         <button onClick={() => router.push('/')} className="p-3 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={28} /></button>
         <div className="text-center">
