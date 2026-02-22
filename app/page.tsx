@@ -58,9 +58,10 @@ export default async function HomePage() {
         </div>
 
         <div className="glass-card p-10 w-full max-w-2xl flex flex-col items-center text-center space-y-8 border-white/60">
-          <p className="text-gray-500 text-lg font-light leading-relaxed">
-            {systemTexts['home_welcome_msg']}
-          </p>
+          <div className="text-gray-500 text-lg font-light leading-relaxed text-center">
+  <p>歡迎來到專業諮詢系統。</p>
+  <p className="mt-2">請點擊下方按鈕開始您的客製化美麗分析。</p>
+</div>
           
           <Link 
   href="/consultation"
