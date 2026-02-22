@@ -51,9 +51,10 @@ function ConsultationContent() {
     // 次之使用 Lucide 圖示
     const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
     return (
-      <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white' : 'bg-amber-50/50'}`}>
-        <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
-      </div>
+     // 修改 renderIcon 函數內的容器大小
+<div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+  {/* 內容不變 */}
+</div>
     );
   };
 
@@ -73,7 +74,7 @@ function ConsultationContent() {
       <div className="flex-1 flex flex-col items-center justify-start max-w-7xl mx-auto w-full z-10">
         <p className="text-gray-500 mb-8 font-light tracking-wide text-center">請選擇一個或多個您感興趣的改善項目</p>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 w-full gap-4 md:gap-6 pb-32">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 w-full gap-3 sm:gap-4 md:gap-6 pb-32">
           {categories.map((cat) => {
             const isSelected = selectedIds.includes(cat.id);
             return (
@@ -81,10 +82,10 @@ function ConsultationContent() {
                 key={cat.id}
                 onClick={() => toggleSelect(cat.id)}
                 className={`
-                  relative glass-card flex flex-col items-center justify-center p-8 transition-all duration-300 transform active:scale-95
-                  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
-                  aspect-[4/3] min-h-[180px]
-                `}
+  relative glass-card flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-300 transform active:scale-95
+  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
+  aspect-[4/3] min-h-[140px] sm:min-h-[160px] md:min-h-[180px]
+`}
               >
                 {renderIcon(cat, isSelected)}
                 <span className={`text-lg md:text-xl font-bold tracking-widest ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
@@ -103,15 +104,15 @@ function ConsultationContent() {
 
       <div className="fixed bottom-10 left-0 right-0 flex justify-center z-20 px-6">
         <button 
-          disabled={selectedIds.length === 0}
-          onClick={handleNext}
-          className={`
-            btn-gold w-full max-w-lg py-6 text-xl tracking-widest gap-4 shadow-2xl transition-all
-            ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-100 hover:scale-[1.02]'}
-          `}
-        >
-          查看專家推薦方案 <ArrowRight size={28} />
-        </button>
+  disabled={selectedIds.length === 0}
+  onClick={handleNext}
+  className={`
+    btn-gold w-full max-w-lg py-4 md:py-6 text-base md:text-xl tracking-widest gap-2 md:gap-4 shadow-2xl transition-all whitespace-nowrap
+    ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-100 hover:scale-[1.02]'}
+  `}
+>
+  查看專家推薦方案 <ArrowRight size={24} className="md:w-7 md:h-7" />
+</button>
       </div>
     </div>
   );
