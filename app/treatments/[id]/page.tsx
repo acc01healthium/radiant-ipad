@@ -109,11 +109,11 @@ export default function TreatmentDetailPage() {
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
       <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b" style={{ height: 'min(40vh, 500px)' }}>
         {imageUrl ? (
-          <img 
-            src={imageUrl} 
-            alt={treatment.title} 
-            className="w-full h-full object-contain p-6 md:p-12"
-          />
+         <img 
+  src={imageUrl} 
+  alt={treatment.title} 
+  className="w-full h-full object-contain p-[10%] md:p-[12%]"
+/>
         ) : (
           <div className="text-gray-200 flex flex-col items-center gap-4">
             <Sparkles size={120} />
