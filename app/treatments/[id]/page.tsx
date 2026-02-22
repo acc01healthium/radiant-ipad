@@ -124,11 +124,11 @@ export default function TreatmentDetailPage() {
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
       <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b" style={{ height: 'min(40vh, 500px)' }}>
         {imageUrl ? (
-          <img 
-            src={imageUrl} 
-            alt={treatment.title} 
-            className="w-full h-full object-contain p-4 md:p-8"
-          />
+        <img 
+  src={imageUrl} 
+  alt={treatment.title} 
+  className="w-full h-full object-contain p-[max(2vw,16px)]"  // 使用視口比例 + 最小內距
+/>
         ) : (
           <div className="text-gray-200 flex flex-col items-center gap-4">
             <Sparkles size={120} />
@@ -195,16 +195,12 @@ export default function TreatmentDetailPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-max">
-            {treatment.cases.map((c: any, index: number) => {
-              const isTall = index % 3 === 0;
-              
-              return (
-                <div 
-                  key={c.id} 
-                  className={`group bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 flex flex-col ${
-                    isTall ? 'row-span-2' : ''
-                  }`}
-                >
+           {treatment.cases.map((c: any, index: number) => {
+  return (
+    <div 
+      key={c.id} 
+      className="group bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 flex flex-col"
+    >
                   <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-gray-50">
                     <div className={`${isTall ? 'aspect-[4/5]' : 'aspect-[4/3]'} w-full`}>
                       {(c.image_url || c.image_path || c.before_image_url) ? (
