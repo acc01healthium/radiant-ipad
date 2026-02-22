@@ -63,12 +63,12 @@ export default async function HomePage() {
           </p>
           
           <Link 
-            href="/consultation"
-            className="btn-gold text-2xl px-12 py-6 w-full max-w-md shadow-clinic-gold/20 flex items-center justify-center gap-4 group"
-          >
-            {systemTexts['home_start_btn']}
-            <ChevronRight size={32} className="group-hover:translate-x-2 transition-transform" />
-          </Link>
+  href="/consultation"
+  className="btn-gold text-base sm:text-lg md:text-2xl px-6 sm:px-8 md:px-12 py-4 sm:py-5 md:py-6 w-full max-w-md shadow-clinic-gold/20 flex items-center justify-center gap-2 sm:gap-3 md:gap-4 group whitespace-nowrap"
+>
+  {systemTexts['home_start_btn']}
+  <ChevronRight size={20} className="sm:w-6 sm:h-6 md:w-8 md:h-8 group-hover:translate-x-2 transition-transform" />
+</Link>
           
           <div className="flex items-center gap-8 pt-4">
             <div className="flex items-center gap-2 text-gray-400 text-sm">
