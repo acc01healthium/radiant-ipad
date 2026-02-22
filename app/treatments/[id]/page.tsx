@@ -130,17 +130,21 @@ try {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative h-[20vh] min-h-[250px] w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b">
-        {imageUrl ? (
-          <img src={imageUrl} alt={treatment.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="text-gray-200 flex flex-col items-center gap-4">
-            <Sparkles size={120} />
-            <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
-          </div>
-        )}
-        <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
-      </div>
+  <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b" style={{ height: 'min(40vh, 500px)' }}>
+  {imageUrl ? (
+    <img 
+      src={imageUrl} 
+      alt={treatment.title} 
+      className="w-full h-full object-contain p-4 md:p-8"
+    />
+  ) : (
+    <div className="text-gray-200 flex flex-col items-center gap-4">
+      <Sparkles size={120} />
+      <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
+    </div>
+  )}
+  <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
+</div>
 
       <div className="max-w-6xl mx-auto px-6 -mt-24 relative z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-[3.5rem] p-10 md:p-16 shadow-2xl border">
@@ -184,34 +188,82 @@ try {
         </div>
       </div>
 
-      {/* 術前術後案例 */}
-      {treatment.cases && treatment.cases.length > 0 && (
-        <div className="max-w-6xl mx-auto px-6 mt-16">
-          <div className="flex items-center gap-3 text-clinic-gold mb-8">
-            <Camera size={24} />
-            <h2 className="text-2xl font-black uppercase tracking-[0.2em]">術前術後案例</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {treatment.cases.map((c: any) => (
-              <div key={c.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border group hover:shadow-2xl transition-all">
-                <div className="aspect-[4/3] overflow-hidden bg-gray-100">
-                  {(c.image_url || c.image_path || c.before_image_url) ? (
-                    <img src={c.image_url || c.image_path || c.before_image_url} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-200">
-                      <LucideImage size={64} />
-                    </div>
-                  )}
-                </div>
-                <div className="p-8">
-                  <h3 className="text-xl font-black text-gray-800 mb-2 truncate">{c.title}</h3>
-                  <p className="text-gray-500 text-sm line-clamp-2 font-medium italic">{c.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    {/* 術前術後案例 - 瀑布流版本 */}
+{treatment.cases && treatment.cases.length > 0 && (
+  <div className="max-w-6xl mx-auto px-6 mt-24">
+    {/* 標題區塊美化 */}
+    <div className="flex items-center gap-4 text-clinic-gold mb-12">
+      <div className="w-14 h-14 bg-clinic-gold/10 rounded-2xl flex items-center justify-center">
+        <Camera size={28} className="text-clinic-gold" />
+      </div>
+      <div>
+        <h2 className="text-3xl md:text-4xl font-black text-gray-800 tracking-tight">
+          術前術後<span className="text-clinic-gold">案例</span>
+        </h2>
+        <p className="text-sm text-gray-400 mt-1 tracking-wide">真實客戶見證・改變看得見</p>
+      </div>
     </div>
-  );
-}
+    
+    {/* 瀑布流網格 */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-max">
+      {treatment.cases.map((c: any, index: number) => {
+        // 隨機分配不同高度（讓瀑布流更有層次感）
+        const isTall = index % 3 === 0; // 每隔三個一個較高的卡片
+        
+        return (
+          <div 
+            key={c.id} 
+            className={`group bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 flex flex-col ${
+              isTall ? 'row-span-2' : ''
+            }`}
+          >
+            {/* 圖片區塊 - 使用 object-contain 確保完整顯示 */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-gray-50">
+              <div className={`${isTall ? 'aspect-[4/5]' : 'aspect-[4/3]'} w-full`}>
+                {(c.image_url || c.image_path || c.before_image_url) ? (
+                  <img 
+                    src={c.image_url || c.image_path || c.before_image_url} 
+                    alt={c.title} 
+                    className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-700"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-200">
+                    <LucideImage size={64} />
+                  </div>
+                )}
+              </div>
+              
+              {/* 標籤 */}
+              <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-black text-clinic-gold shadow-lg border border-clinic-gold/20 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-clinic-gold rounded-full animate-pulse"></span>
+                BEFORE × AFTER
+              </div>
+              
+              {/* 懸浮遮罩 */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            </div>
+            
+            {/* 文字內容 */}
+            <div className="p-8 flex-1 flex flex-col">
+              <h3 className="text-xl font-black text-gray-800 mb-3 line-clamp-1 group-hover:text-clinic-gold transition-colors">
+                {c.title}
+              </h3>
+              {c.description && (
+                <p className="text-gray-500 text-sm line-clamp-3 font-medium italic leading-relaxed">
+                  {c.description}
+                </p>
+              )}
+              
+              {/* 裝飾線條 */}
+              <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                  真實案例
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
