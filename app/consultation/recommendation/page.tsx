@@ -108,16 +108,20 @@ function RecommendationContent() {
 
             return (
               <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">
-                <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center overflow-hidden border-r border-white/40">
-                   {imageUrl ? (
-                     <img src={imageUrl} alt={t.title} className="w-full h-full object-cover" />
-                   ) : (
-                     <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
-                       <LucideImage size={80} />
-                       <span className="text-[10px] font-black">Treatment Image Reference</span>
-                     </div>
-                   )}
-                </div>
+               <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center overflow-hidden border-r border-white/40">
+  {imageUrl ? (
+    <img 
+      src={imageUrl} 
+      alt={t.title} 
+      className="w-full h-full object-contain p-4"  // 改為 object-contain 並加上內距
+    />
+  ) : (
+    <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
+      <LucideImage size={80} />
+      <span className="text-[10px] font-black">Treatment Image Reference</span>
+    </div>
+  )}
+</div>
 
                 <div className="lg:w-[55%] p-8 md:p-12 flex flex-col">
                   <div className="flex justify-between items-start gap-4 mb-6 shrink-0">
