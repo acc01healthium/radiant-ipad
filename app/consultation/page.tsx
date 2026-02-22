@@ -47,8 +47,8 @@ function ConsultationContent() {
 
     const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
     return (
-      <div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
-        <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
+      <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+        <Icon size={24} className="xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 ${isSelected ? 'text-clinic-gold' : 'text-gray-300'}" />
       </div>
     );
   };
@@ -76,14 +76,14 @@ function ConsultationContent() {
               <button
                 key={cat.id}
                 onClick={() => toggleSelect(cat.id)}
-                className={`
-                  relative glass-card flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-300 transform active:scale-95
-                  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
-                  aspect-[4/3] min-h-[140px] sm:min-h-[160px] md:min-h-[180px]
-                `}
+               className={`
+  relative glass-card flex flex-col items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 transition-all duration-300 transform active:scale-95
+  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
+  aspect-[4/3] min-h-[100px] xs:min-h-[120px] sm:min-h-[140px] md:min-h-[160px] lg:min-h-[180px]
+`}
               >
                 {renderIcon(cat, isSelected)}
-                <span className={`text-base sm:text-lg md:text-xl font-bold tracking-widest ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
+                <span className={`text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-bold tracking-widest ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
                   {cat.name}
                 </span>
                 {isSelected && (
