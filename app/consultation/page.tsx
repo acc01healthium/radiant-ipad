@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -15,7 +14,6 @@ function ConsultationContent() {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      // 確保選取 icon_image_path 並移除 is_active 條件
       const { data } = await supabase
         .from('improvement_categories')
         .select('id, name, icon_name, sort_order, icon_image_path')
@@ -38,23 +36,20 @@ function ConsultationContent() {
   };
 
   const renderIcon = (cat: any, isSelected: boolean) => {
-    // 優先使用上傳的圖片
     if (cat.icon_image_path) {
       const { data } = supabase.storage.from('icons').getPublicUrl(cat.icon_image_path);
       return (
-        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors shrink-0 overflow-hidden ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+        <div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 overflow-hidden ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
           <img src={data.publicUrl} alt={cat.name} className="w-full h-full object-cover" />
         </div>
       );
     }
 
-    // 次之使用 Lucide 圖示
     const Icon = (LucideIcons as any)[cat.icon_name] || LucideIcons.Sparkles;
     return (
-     // 修改 renderIcon 函數內的容器大小
-<div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
-  {/* 內容不變 */}
-</div>
+      <div className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-2 sm:mb-3 md:mb-4 transition-colors shrink-0 ${isSelected ? 'bg-white ring-4 ring-clinic-gold/20' : 'bg-amber-50/50'}`}>
+        <Icon size={48} className={isSelected ? 'text-clinic-gold' : 'text-gray-300'} />
+      </div>
     );
   };
 
@@ -82,13 +77,13 @@ function ConsultationContent() {
                 key={cat.id}
                 onClick={() => toggleSelect(cat.id)}
                 className={`
-  relative glass-card flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-300 transform active:scale-95
-  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
-  aspect-[4/3] min-h-[140px] sm:min-h-[160px] md:min-h-[180px]
-`}
+                  relative glass-card flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-300 transform active:scale-95
+                  ${isSelected ? 'bg-amber-50/80 border-clinic-gold shadow-xl -translate-y-1' : 'hover:shadow-lg'}
+                  aspect-[4/3] min-h-[140px] sm:min-h-[160px] md:min-h-[180px]
+                `}
               >
                 {renderIcon(cat, isSelected)}
-                <span className={`text-lg md:text-xl font-bold tracking-widest ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
+                <span className={`text-base sm:text-lg md:text-xl font-bold tracking-widest ${isSelected ? 'text-clinic-gold' : 'text-gray-600'}`}>
                   {cat.name}
                 </span>
                 {isSelected && (
@@ -104,15 +99,15 @@ function ConsultationContent() {
 
       <div className="fixed bottom-10 left-0 right-0 flex justify-center z-20 px-6">
         <button 
-  disabled={selectedIds.length === 0}
-  onClick={handleNext}
-  className={`
-    btn-gold w-full max-w-lg py-4 md:py-6 text-base md:text-xl tracking-widest gap-2 md:gap-4 shadow-2xl transition-all whitespace-nowrap
-    ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-100 hover:scale-[1.02]'}
-  `}
->
-  查看專家推薦方案 <ArrowRight size={24} className="md:w-7 md:h-7" />
-</button>
+          disabled={selectedIds.length === 0}
+          onClick={handleNext}
+          className={`
+            btn-gold w-full max-w-lg py-3 sm:py-4 md:py-6 text-sm sm:text-base md:text-xl tracking-widest gap-1 sm:gap-2 md:gap-4 shadow-2xl transition-all whitespace-nowrap
+            ${selectedIds.length === 0 ? 'opacity-30 grayscale cursor-not-allowed' : 'scale-100 hover:scale-[1.02]'}
+          `}
+        >
+          查看專家推薦方案 <ArrowRight size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
+        </button>
       </div>
     </div>
   );
