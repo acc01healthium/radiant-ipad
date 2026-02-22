@@ -107,21 +107,33 @@ export default function TreatmentDetailPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden border-b" style={{ height: 'min(40vh, 500px)' }}>
-        {imageUrl ? (
-         <img 
-  src={imageUrl} 
-  alt={treatment.title} 
-  className="w-full h-full object-contain p-[10%] md:p-[12%]"
-/>
-        ) : (
-          <div className="text-gray-200 flex flex-col items-center gap-4">
-            <Sparkles size={120} />
-            <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
-          </div>
-        )}
-        <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
+      <div className="relative w-full bg-gray-900 flex items-end justify-start overflow-hidden border-b" 
+     style={{ minHeight: '350px', height: 'min(50vh, 650px)' }}>
+  {imageUrl ? (
+    <>
+      {/* 背景模糊圖層 - 製造景深效果 */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center blur-sm scale-105 opacity-60"
+        style={{ backgroundImage: `url(${imageUrl})` }}
+      />
+      {/* 前景清晰圖片 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center p-6 md:p-10">
+        <img 
+          src={imageUrl} 
+          alt={treatment.title} 
+          className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
+          style={{ maxHeight: 'min(80%, 500px)' }}
+        />
       </div>
+    </>
+  ) : (
+    <div className="absolute inset-0 flex items-center justify-center text-gray-200 flex-col gap-4">
+      <Sparkles size={120} />
+      <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
+    </div>
+  )}
+  <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
+</div>
 
       <div className="max-w-6xl mx-auto px-6 -mt-24 relative z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-[3.5rem] p-10 md:p-16 shadow-2xl border">
