@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera, Image as LucideImage } from 'lucide-react';
+import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera, Image as LucideImage, X, ZoomIn } from 'lucide-react';
 
 export default function TreatmentDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [treatment, setTreatment] = useState<any>(null);
+  const [selectedCase, setSelectedCase] = useState<any>(null);
 
   useEffect(() => {
     if (id) fetchDetail();
@@ -107,33 +108,46 @@ export default function TreatmentDetailPage() {
 
   return (
     <div className="min-h-screen bg-clinic-cream pb-20 bg-pattern">
-      <div className="relative w-full bg-gray-900 flex items-end justify-start overflow-hidden border-b" 
-     style={{ minHeight: '350px', height: 'min(50vh, 650px)' }}>
-  {imageUrl ? (
-    <>
-      {/* 背景模糊圖層 - 製造景深效果 */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center blur-sm scale-105 opacity-60"
-        style={{ backgroundImage: `url(${imageUrl})` }}
-      />
-      {/* 前景清晰圖片 */}
-      <div className="relative z-10 w-full h-full flex items-center justify-center p-6 md:p-10">
-        <img 
-          src={imageUrl} 
-          alt={treatment.title} 
-          className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
-          style={{ maxHeight: 'min(80%, 500px)' }}
-        />
+      {/* 置頂圖 - 微調版本 */}
+      <div className="relative w-full bg-gradient-to-br from-clinic-gold/10 to-gray-900 flex items-end justify-start overflow-hidden border-b" 
+           style={{ minHeight: '400px', height: 'min(55vh, 700px)' }}>
+        {imageUrl ? (
+          <>
+            {/* 背景模糊圖層 - 增加色彩濾鏡 */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ 
+                backgroundImage: `url(${imageUrl})`,
+                filter: 'brightness(0.7) blur(8px)',
+                transform: 'scale(1.1)'
+              }}
+            />
+            {/* 額外漸層覆蓋，讓文字更清楚 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+            
+            {/* 前景清晰圖片 - 加上輕微陰影和邊框 */}
+            <div className="relative z-10 w-full h-full flex items-center justify-center p-8 md:p-12">
+              <img 
+                src={imageUrl} 
+                alt={treatment.title} 
+                className="max-h-full max-w-full object-contain rounded-3xl shadow-2xl border-4 border-white/20"
+                style={{ maxHeight: 'min(85%, 550px)' }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-200 flex-col gap-4">
+            <Sparkles size={120} />
+            <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
+          </div>
+        )}
+        <button 
+          onClick={() => router.back()} 
+          className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20 hover:bg-white transition-all"
+        >
+          <ChevronLeft size={32} />
+        </button>
       </div>
-    </>
-  ) : (
-    <div className="absolute inset-0 flex items-center justify-center text-gray-200 flex-col gap-4">
-      <Sparkles size={120} />
-      <span className="text-xs font-black uppercase tracking-[0.4em]">Radiant Aesthetic</span>
-    </div>
-  )}
-  <button onClick={() => router.back()} className="absolute top-8 left-8 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl text-gray-600 z-20"><ChevronLeft size={32} /></button>
-</div>
 
       <div className="max-w-6xl mx-auto px-6 -mt-24 relative z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-[3.5rem] p-10 md:p-16 shadow-2xl border">
@@ -194,14 +208,24 @@ export default function TreatmentDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {treatment.cases.map((c: any) => (
               <div key={c.id} className="group bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 flex flex-col">
-                <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-gray-50">
+                {/* 圖片區塊 - 加入點擊放大功能 */}
+                <div 
+                  className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-gray-50 cursor-pointer group/case"
+                  onClick={() => setSelectedCase(c)}
+                >
                   <div className="aspect-[4/3] w-full">
                     {(c.image_url || c.image_path || c.before_image_url) ? (
-                      <img 
-                        src={c.image_url || c.image_path || c.before_image_url} 
-                        alt={c.title} 
-                        className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-700"
-                      />
+                      <>
+                        <img 
+                          src={c.image_url || c.image_path || c.before_image_url} 
+                          alt={c.title} 
+                          className="w-full h-full object-contain p-4 group-hover/case:scale-105 transition-transform duration-700"
+                        />
+                        {/* 懸浮時顯示放大鏡圖示 */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/case:opacity-100 transition-opacity flex items-center justify-center">
+                          <ZoomIn size={48} className="text-white" />
+                        </div>
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-200">
                         <LucideImage size={64} />
@@ -213,8 +237,6 @@ export default function TreatmentDetailPage() {
                     <span className="w-1.5 h-1.5 bg-clinic-gold rounded-full animate-pulse"></span>
                     BEFORE × AFTER
                   </div>
-                  
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
                 
                 <div className="p-8 flex-1 flex flex-col">
@@ -235,6 +257,50 @@ export default function TreatmentDetailPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 圖片放大 Modal */}
+      {selectedCase && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 md:p-10"
+          onClick={() => setSelectedCase(null)}
+        >
+          <div className="relative max-w-5xl w-full max-h-full bg-white/10 backdrop-blur-lg rounded-3xl p-6 flex flex-col md:flex-row gap-6" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedCase(null)} 
+              className="absolute top-4 right-4 p-3 bg-black/50 hover:bg-black/70 rounded-full text-white z-10 transition-all"
+            >
+              <X size={24} />
+            </button>
+            
+            {/* 左側：大圖 */}
+            <div className="md:w-3/5 flex items-center justify-center bg-black/20 rounded-2xl p-4">
+              <img 
+                src={selectedCase.image_url || selectedCase.image_path || selectedCase.before_image_url} 
+                alt={selectedCase.title} 
+                className="w-full h-auto max-h-[70vh] object-contain"
+              />
+            </div>
+            
+            {/* 右側：詳細文字 */}
+            <div className="md:w-2/5 text-white flex flex-col">
+              <h3 className="text-3xl font-black mb-4">{selectedCase.title}</h3>
+              {selectedCase.description && (
+                <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-line">
+                  {selectedCase.description}
+                </p>
+              )}
+              
+              <div className="mt-8 pt-6 border-t border-white/20">
+                <div className="flex gap-4">
+                  <div className="bg-white/10 px-4 py-2 rounded-full text-sm font-bold">術前</div>
+                  <div className="bg-clinic-gold/20 px-4 py-2 rounded-full text-sm font-bold">術後</div>
+                </div>
+                <p className="mt-4 text-sm text-gray-300 italic">點擊圖片外部或按 ESC 可關閉</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
