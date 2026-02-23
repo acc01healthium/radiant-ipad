@@ -59,8 +59,8 @@ export default async function HomePage() {
 
         <div className="glass-card p-10 w-full max-w-2xl flex flex-col items-center text-center space-y-8 border-white/60">
           <div className="text-gray-500 text-lg font-light leading-relaxed text-center">
-  <p>美得不著痕跡，是最高級的愛自己。</p>
-  <p className="mt-2">亮立美學，為妳立下美的標竿。</p>
+  <p>美得不著痕跡，是最高級的愛自己</p>
+  <p className="mt-2">亮立美學，為妳立下美的標竿</p>
 </div>
           
           <Link 
