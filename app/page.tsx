@@ -52,7 +52,7 @@ export default async function HomePage() {
           </h1>
           <div className="flex items-center justify-center gap-4 text-clinic-gold tracking-widest uppercase text-sm font-medium opacity-60">
             <span className="h-[1px] w-8 bg-clinic-gold/30"></span>
-            {systemTexts['home_subtitle'] || 'Radiant Medical Aesthetic'}
+            {systemTexts['home_subtitle'] || 'Radiant Clinic'}
             <span className="h-[1px] w-8 bg-clinic-gold/30"></span>
           </div>
         </div>
