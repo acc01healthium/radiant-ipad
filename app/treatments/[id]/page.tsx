@@ -164,29 +164,36 @@ export default function TreatmentDetailPage() {
             </div>
             
             <div className="bg-amber-50/50 p-8 rounded-[2.5rem] border border-amber-100 flex flex-col gap-4 min-w-[320px]">
-              <div className="flex items-center gap-2 text-amber-600 mb-2 border-b border-amber-100 pb-3">
-                <DollarSign size={20} />
-                <span className="text-sm font-black uppercase tracking-widest">課程方案</span>
-              </div>
-              <div className="space-y-4">
-                {treatment.treatment_price_options?.length > 0 ? (
-                  treatment.treatment_price_options.sort((a:any, b:any) => a.sort_order - b.sort_order).map((opt:any) => {
-                    const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
-                      ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
-                      : opt.label;
+  <div className="flex items-center gap-2 text-amber-600 mb-2 border-b border-amber-100 pb-3">
+    <DollarSign size={20} />
+    <span className="text-sm font-black uppercase tracking-widest">課程方案</span>
+  </div>
+  <div className="space-y-4">
+    {treatment.treatment_price_options?.length > 0 ? (
+      treatment.treatment_price_options.sort((a:any, b:any) => a.sort_order - b.sort_order).map((opt:any) => {
+        const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
+          ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
+          : opt.label;
 
-                    return (
-                      <div key={opt.id} className="flex justify-between items-center">
-                        <span className="text-gray-600 font-bold">{displayLabel} ({opt.sessions || 1}堂)</span>
-                        <div className="text-2xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-gray-400 italic text-sm">洽詢專人規劃</div>
-                )}
-              </div>
-            </div>
+        return (
+          <div key={opt.id} className="flex justify-between items-center">
+            <span className="text-gray-600 font-bold">{displayLabel} ({opt.sessions || 1}堂)</span>
+            <div className="text-2xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</div>
+          </div>
+        );
+      })
+    ) : (
+      <div className="text-gray-400 italic text-sm">洽詢專人規劃</div>
+    )}
+  </div>
+  
+  {/* 新增的注意事項 */}
+  <div className="mt-4 pt-4 border-t border-amber-200/50 text-center">
+    <p className="text-xs text-gray-400 italic font-light tracking-wide">
+      * 實際價格以診所價目表為主
+    </p>
+  </div>
+</div>
           </div>
         </div>
       </div>
