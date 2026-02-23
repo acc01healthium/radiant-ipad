@@ -32,20 +32,18 @@ export default async function HomePage() {
 
       <div className="z-10 w-full max-w-4xl flex flex-col items-center animate-fade-in">
         <div className="mb-12 text-center">
-          <div className="relative inline-block mb-8">
-            <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
-              <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
-                {logoUrl ? (
-                  <img src={`${logoUrl}?v=${version}`} alt={clinicName} className="w-full h-full object-cover" />
-                ) : (
-                  <Sparkles size={64} className="text-clinic-gold" />
-                )}
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 bg-clinic-gold p-3 rounded-full text-white shadow-lg border-2 border-white">
-              <Sparkles size={24} />
-            </div>
-          </div>
+         <div className="relative inline-block mb-8">
+  <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
+    <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
+      {logoUrl ? (
+        <img src={`${logoUrl}?v=${version}`} alt={clinicName} className="w-full h-full object-cover" />
+      ) : (
+        <Sparkles size={64} className="text-clinic-gold" />
+      )}
+    </div>
+  </div>
+  {/* 這整個 <div> 刪掉 */}
+</div>
           
           <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all uppercase text-center">
             {clinicName}
