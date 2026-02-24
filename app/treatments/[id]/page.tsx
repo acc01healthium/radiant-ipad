@@ -173,7 +173,6 @@ export default function TreatmentDetailPage() {
               <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2 treatment-price-scrollbar">
                 {treatment.treatment_price_options?.length > 0 ? (
                   treatment.treatment_price_options
-                    .sort((a:any, b:any) => a.sort_order - b.sort_order)
                     .map((opt:any) => {
                       const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
                         ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
