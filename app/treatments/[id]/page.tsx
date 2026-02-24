@@ -163,41 +163,52 @@ export default function TreatmentDetailPage() {
               </p>
             </div>
             
-            <div className="bg-amber-50/50 p-8 rounded-[2.5rem] border border-amber-100 flex flex-col gap-4 min-w-[320px]">
-  <div className="flex items-center gap-2 text-amber-600 mb-2 border-b border-amber-100 pb-3">
-    <DollarSign size={20} />
-    <span className="text-sm font-black uppercase tracking-widest">課程方案</span>
-  </div>
-  <div className="space-y-4">
-    {treatment.treatment_price_options?.length > 0 ? (
-      treatment.treatment_price_options.sort((a:any, b:any) => a.sort_order - b.sort_order).map((opt:any) => {
-        const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
-          ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
-          : opt.label;
+            {/* 課程方案區塊 */}
+            <div className="bg-gradient-to-br from-amber-50 to-amber-50/30 p-6 md:p-8 rounded-[2.5rem] border border-amber-100 flex flex-col gap-4 min-w-[320px] shadow-sm">
+              <div className="flex items-center gap-2 text-amber-700 mb-2">
+                <DollarSign size={20} className="text-clinic-gold" />
+                <span className="text-sm font-black uppercase tracking-widest text-gray-700">課程方案</span>
+              </div>
+              
+              <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2 treatment-price-scrollbar">
+                {treatment.treatment_price_options?.length > 0 ? (
+                  treatment.treatment_price_options
+                    .sort((a:any, b:any) => a.sort_order - b.sort_order)
+                    .map((opt:any) => {
+                      const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
+                        ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
+                        : opt.label;
 
-        return (
-          <div key={opt.id} className="flex justify-between items-center">
-            <span className="text-gray-600 font-bold">{displayLabel} ({opt.sessions || 1}堂)</span>
-            <div className="text-2xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</div>
-          </div>
-        );
-      })
-    ) : (
-      <div className="text-gray-400 italic text-sm">洽詢專人規劃</div>
-    )}
-  </div>
-  
-  {/* 新增的注意事項 */}
-  <div className="mt-4 pt-4 border-t border-amber-200/50 text-center">
-    <p className="text-xs text-gray-400 italic font-light tracking-wide">
-      * 實際價格以診所價目表為主
-    </p>
-  </div>
-</div>
+                      return (
+                        <div key={opt.id} className="flex items-baseline justify-between gap-4 py-3 border-b border-amber-100 last:border-0 hover:bg-amber-50/50 transition-colors px-2 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-gray-700 font-bold text-base truncate block">{displayLabel}</span>
+                            {opt.sessions && (
+                              <span className="text-xs text-gray-400 font-medium">{opt.sessions}堂</span>
+                            )}
+                          </div>
+                          <div className="text-right whitespace-nowrap">
+                            <span className="text-xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="text-gray-400 italic text-sm text-center py-8">洽詢專人規劃</div>
+                )}
+              </div>
+              
+              <div className="mt-2 pt-4 border-t border-amber-200/50 text-center">
+                <p className="text-xs text-gray-400 italic font-light tracking-wide flex items-center justify-center gap-1">
+                  <span className="text-clinic-gold">*</span> 實際價格以診所價目表為主
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* 術前術後案例區塊 */}
       {treatment.cases && treatment.cases.length > 0 && (
         <div className="max-w-6xl mx-auto px-6 mt-24">
           <div className="flex items-center gap-4 text-clinic-gold mb-12">
@@ -314,3 +325,18 @@ export default function TreatmentDetailPage() {
     </div>
   );
 }
+
+{/* 全局滾動條樣式 */}
+<style jsx global>{`
+  .treatment-price-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .treatment-price-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  .treatment-price-scrollbar::-webkit-scrollbar-thumb {
+    background: #d4a373;
+    border-radius: 4px;
+  }
+`}</style>
