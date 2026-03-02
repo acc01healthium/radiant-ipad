@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-800 leading-none truncate max-w-[150px]">{clinicName}</h1>
-              <span className="text-[10px] uppercase tracking-widest text-gray-400">Admin Panel</span>
+              <span className="text-[10px] uppercase tracking-widest text-gray-400">RADIANT CLINIC</span>
             </div>
           </div>
          <nav className="flex-1 p-5 space-y-2">
