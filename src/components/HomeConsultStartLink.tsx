@@ -18,7 +18,6 @@ export default function HomeConsultStartLink({ label }: Props) {
     e.preventDefault();
 
     try {
-      // ✅ 記錄事件（今天點擊數就靠它）
       await supabase.from('analytics_events').insert([
         {
           event_name: 'home_consult_start_click',
@@ -26,7 +25,7 @@ export default function HomeConsultStartLink({ label }: Props) {
         }
       ]);
     } catch (err) {
-      // 追蹤失敗不應阻擋導頁
+      // 追蹤失敗不阻擋導頁
       console.error('track click error:', err);
     } finally {
       router.push('/consultation');
