@@ -4,13 +4,12 @@ import React from 'react';
 import Link from 'next/link';
 import { Sparkles, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import HomeConsultStartLink from '@/components/HomeConsultStartLink';
+import HomeConsultStartLink from './HomeConsultStartLink';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function HomePage() {
-  // 1. 同時獲取診所設定、系統文字與分類資料 (移除 is_active)
   const [settingsRes, textsRes, categoriesRes] = await Promise.all([
     supabase.from('settings').select('logo_url, clinic_name, updated_at').eq('id', 'clinic_main').single(),
     supabase.from('system_texts').select('key, value'),
@@ -26,7 +25,6 @@ export default async function HomePage() {
   const clinicName = systemTexts['home_title'] || settings?.clinic_name || '亮立美學';
   const logoUrl = settings?.logo_url;
   const version = settings?.updated_at ? new Date(settings.updated_at).getTime() : Date.now();
-
   const startBtnLabel = systemTexts['home_start_btn'] || '開始專業諮詢';
 
   return (
@@ -65,7 +63,6 @@ export default async function HomePage() {
             <p className="mt-2">亮立美學，為妳立下美的標竿</p>
           </div>
 
-          {/* ✅ 這顆就是「開始專業諮詢」按鈕：點擊會記錄事件，再導頁 */}
           <HomeConsultStartLink label={startBtnLabel} />
 
           <div className="flex items-center gap-8 pt-4">
