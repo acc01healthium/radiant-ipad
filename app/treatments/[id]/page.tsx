@@ -1,9 +1,11 @@
+//app/treatments/[id]/page.tsx
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Sparkles, Loader2, DollarSign, Camera, Image as LucideImage, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, Sparkles, Loader2, Camera, Image as LucideImage, X, ZoomIn } from 'lucide-react';
 
 export default function TreatmentDetailPage() {
   const { id } = useParams();
@@ -22,8 +24,7 @@ export default function TreatmentDetailPage() {
       const { data, error } = await supabase
         .from('treatments')
         .select(`
-          id, title, description, icon_name, image_url, sort_order,
-          treatment_price_options (id, label, sessions, price)
+          id, title, description, icon_name, image_url, sort_order
         `)
         .eq('id', id)
         .single();
@@ -87,10 +88,6 @@ export default function TreatmentDetailPage() {
         console.error("Error fetching cases:", err);
       }
 
-      if (data && data.treatment_price_options) {
-        data.treatment_price_options.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || a.price - b.price);
-      }
-
       setTreatment({ ...data, cases: associatedCases });
     } catch (err) {
       console.error("Fetch Detail Error:", err);
@@ -151,8 +148,8 @@ export default function TreatmentDetailPage() {
 
       <div className="max-w-6xl mx-auto px-6 -mt-24 relative z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-[3.5rem] p-10 md:p-16 shadow-2xl border">
-          <div className="flex flex-col lg:flex-row justify-between items-start gap-10 mb-12">
-            <div className="flex-1">
+          <div className="flex flex-col justify-between items-start gap-10 mb-12">
+            <div className="flex-1 w-full">
               <div className="flex items-center gap-3 text-clinic-gold mb-3">
                 <Sparkles size={20} />
                 <span className="text-xs font-black uppercase tracking-[0.3em]">Radiant Treatment</span>
@@ -161,47 +158,6 @@ export default function TreatmentDetailPage() {
               <p className="mt-8 text-gray-500 text-lg leading-relaxed whitespace-pre-line font-light italic">
                 {treatment.description}
               </p>
-            </div>
-            
-            {/* 課程方案區塊 */}
-            <div className="bg-gradient-to-br from-amber-50 to-amber-50/30 p-6 md:p-8 rounded-[2.5rem] border border-amber-100 flex flex-col gap-4 min-w-[320px] shadow-sm">
-              <div className="flex items-center gap-2 text-amber-700 mb-2">
-                <DollarSign size={20} className="text-clinic-gold" />
-                <span className="text-sm font-black uppercase tracking-widest text-gray-700">課程方案</span>
-              </div>
-              
-              <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2 treatment-price-scrollbar">
-                {treatment.treatment_price_options?.length > 0 ? (
-                  treatment.treatment_price_options
-                    .map((opt:any) => {
-                      const displayLabel = (opt.label === 'EMPTY' || !opt.label) 
-                        ? (opt.sessions === 1 ? '單堂' : `${opt.sessions}堂`) 
-                        : opt.label;
-
-                      return (
-                        <div key={opt.id} className="flex items-baseline justify-between gap-4 py-3 border-b border-amber-100 last:border-0 hover:bg-amber-50/50 transition-colors px-2 rounded-lg">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-gray-700 font-bold text-base truncate block">{displayLabel}</span>
-                            {opt.sessions && (
-                              <span className="text-xs text-gray-400 font-medium">{opt.sessions}堂</span>
-                            )}
-                          </div>
-                          <div className="text-right whitespace-nowrap">
-                            <span className="text-xl font-black text-clinic-gold">NT${opt.price.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      );
-                    })
-                ) : (
-                  <div className="text-gray-400 italic text-sm text-center py-8">洽詢專人規劃</div>
-                )}
-              </div>
-              
-              <div className="mt-2 pt-4 border-t border-amber-200/50 text-center">
-                <p className="text-xs text-gray-400 italic font-light tracking-wide flex items-center justify-center gap-1">
-                  <span className="text-clinic-gold">*</span> 實際價格以診所價目表為主
-                </p>
-              </div>
             </div>
           </div>
         </div>
