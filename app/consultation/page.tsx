@@ -69,7 +69,15 @@ function ConsultationContent() {
         <button onClick={() => router.push('/')} className="p-2 md:p-3 bg-white shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all"><ChevronLeft size={24} className="md:w-7 md:h-7" /></button>
         <div className="text-center">
           <h2 className="text-xl md:text-3xl font-light text-clinic-dark tracking-widest uppercase text-center">您想諮詢的問題或困擾</h2>
-          <div className="h-1 w-full max-w-[280px] md:max-w-[400px] mx-auto mt-2 rounded-full bg-gradient-to-r from-clinic-gold via-clinic-gold to-transparent"></div>
+          <div className="flex items-center justify-center mt-2">
+            <div className="h-px w-24 md:w-36 bg-clinic-gold/70"></div>
+            <div className="flex flex-col items-center justify-center mx-1">
+              <div className="w-1 h-1 rotate-45 bg-clinic-gold"></div>
+              <div className="w-1 h-3 rotate-45 bg-clinic-gold -my-0.5"></div>
+              <div className="w-1 h-1 rotate-45 bg-clinic-gold"></div>
+            </div>
+            <div className="h-px w-24 md:w-36 bg-clinic-gold/70"></div>
+          </div>
         </div>
         <div className="w-10 md:w-12"></div>
       </header>
