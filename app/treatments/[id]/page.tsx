@@ -18,6 +18,23 @@ export default function TreatmentDetailPage() {
     if (id) fetchDetail();
   }, [id]);
 
+  // 新增：監聽 ESC 鍵關閉 Modal
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedCase(null);
+      }
+    };
+    
+    if (selectedCase) {
+      window.addEventListener('keydown', handleEsc);
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [selectedCase]);
+
   const fetchDetail = async () => {
     setLoading(true);
     try {
