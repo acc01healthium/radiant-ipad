@@ -1,3 +1,4 @@
+//app/admin/treatments/page.tsx
 
 'use client';
 
@@ -58,7 +59,6 @@ export default function TreatmentListPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<number>(0);
-  const [priceOptions, setPriceOptions] = useState<any[]>([]);
   const [iconName, setIconName] = useState('Sparkles');
 
   // 案例編輯相關
@@ -109,14 +109,7 @@ export default function TreatmentListPage() {
 
       if (tError) throw tError;
 
-      // 3. 抓取價格方案
-      const { data: pData, error: pError } = await supabase
-        .from('treatment_price_options')
-        .select('*');
-
-      if (pError) console.error("Fetch prices error:", pError);
-
-      // 4. 抓取改善項目關聯
+      // 3. 抓取改善項目關聯
       let relations: any[] = [];
       try {
         const { data: relData } = await supabase.from('treatment_improvement_categories').select('treatment_id, category_id');
@@ -128,7 +121,7 @@ export default function TreatmentListPage() {
         console.error("Fetch improvement relations error:", relErr);
       }
 
-      // 4.5 抓取案例關聯 (使用 treatment_case_relations 作為關聯表)
+      // 4. 抓取案例關聯 (使用 treatment_case_relations 作為關聯表)
 let caseRelations: any[] = [];
 try {
   const { data: cRelData } = await supabase.from('treatment_case_relations').select('treatment_id, case_id');  // ← 改這裡
@@ -162,7 +155,7 @@ try {
 
         return {
           ...t,
-          treatment_price_options: (pData || []).filter(p => p.treatment_id === t.id),
+          treatment_price_options: [], // 留空陣列，避免後續出錯
           treatment_improvement_categories: tRelations,
           category_names: tCategories,
           case_ids: tCaseIds
@@ -341,26 +334,6 @@ try {
 
       if (!treatmentId) throw new Error("無法取得療程 ID");
 
-      // 第二步：同步價格方案
-      try {
-        await supabase.from('treatment_price_options').delete().eq('treatment_id', treatmentId);
-        
-        const validOptions = priceOptions.filter(opt => Number(opt.price) > 0 || (opt.label && opt.label.trim() !== ''));
-        
-        if (validOptions.length > 0) {
-          const optionsToInsert = validOptions.map((opt) => ({
-            treatment_id: treatmentId,
-            label: opt.label?.trim() || (Number(opt.sessions) === 1 ? '單堂' : `${opt.sessions}堂`),
-            price: Number(opt.price) || 0,
-            sessions: Number(opt.sessions) || 1,
-          }));
-          const { error: insPriceErr } = await supabase.from('treatment_price_options').insert(optionsToInsert);
-          if (insPriceErr) console.error("Insert prices error:", insPriceErr);
-        }
-      } catch (pErr) {
-        console.error("Price options sync error:", pErr);
-      }
-
       // 第三步：同步改善項目關聯
       try {
         // 刪除舊關聯
@@ -439,11 +412,6 @@ try {
 
       setSelectedCaseIds(t.case_ids || []);
       
-      const mappedOptions = (t.treatment_price_options || []).map((opt: any) => ({
-        ...opt,
-        label: opt.label === 'EMPTY' ? '' : opt.label
-      }));
-      setPriceOptions(mappedOptions.length > 0 ? mappedOptions : [{ label: '', sessions: 1, price: 0 }]);
 
       if (t.image_url) {
         setExistingImagePath(t.image_url);
@@ -463,7 +431,6 @@ try {
       setSortOrder(treatments.length + 1);
       setSelectedCategoryIds([]);
       setSelectedCaseIds([]);
-      setPriceOptions([{ label: '', sessions: 1, price: 0 }]);
       setIconName('Sparkles');
       setExistingImagePath(null);
       setImagePreview(null);
@@ -497,7 +464,7 @@ try {
                 <th className="p-8 w-20">排序</th>
                 <th className="p-8 w-24">圖示</th>
                 <th className="p-8">療程名稱</th>
-                <th className="p-8">方案數量</th>
+                <th className="p-8">改善項目</th>
                 <th className="p-8 text-right">操作</th>
               </tr>
             </thead>
@@ -527,7 +494,7 @@ try {
                     </div>
                   </td>
                   <td className="p-8 font-bold text-gray-400 text-sm">
-                    {t.treatment_price_options?.length || 0} 個方案
+                    {t.category_names?.length || 0} 個項目
                   </td>
                   <td className="p-8 text-right flex justify-end gap-3">
                     <button onClick={() => openModal(t)} className="p-3 border rounded-xl hover:bg-white hover:shadow-md transition-all"><Edit3 size={18} /></button>
@@ -587,33 +554,6 @@ try {
                        <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                     </div>
                     <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">點擊上傳或更換圖片</p>
-                  </div>
-               </section>
-
-               <section className="bg-gray-50/50 p-8 rounded-[2.5rem] border border-gray-100">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2"><Layers size={18}/> 價格方案設定</h4>
-                    <button type="button" onClick={() => setPriceOptions([...priceOptions, { label: '', price: 0, sessions: 1 }])} className="text-clinic-gold flex items-center gap-1 font-black text-xs uppercase tracking-widest hover:underline"><PlusCircle size={20}/> 新增方案</button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {priceOptions.map((opt, i) => (
-                      <div key={i} className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm relative group">
-                        <button type="button" onClick={() => setPriceOptions(priceOptions.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-red-300 hover:text-red-500"><X size={16}/></button>
-                        <div className="space-y-4">
-                          <input placeholder="標籤 (預設為: 單堂/X堂)" value={opt.label} onChange={e => { const n = [...priceOptions]; n[i].label = e.target.value; setPriceOptions(n); }} className="w-full text-sm font-black border-b pb-2 outline-none focus:border-clinic-gold" />
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-gray-300">金額</label>
-                              <input type="number" value={opt.price} onChange={e => { const n = [...priceOptions]; n[i].price = e.target.value; setPriceOptions(n); }} className="w-full text-lg font-black outline-none" />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-gray-300">堂數</label>
-                              <input type="number" value={opt.sessions} onChange={e => { const n = [...priceOptions]; n[i].sessions = e.target.value; setPriceOptions(n); }} className="w-full text-lg font-black outline-none" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                </section>
 
