@@ -1,29 +1,68 @@
-
+// app/admin/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Database, Plus, Users, ImageIcon, CheckCircle2, Loader2, Settings, TrendingUp } from 'lucide-react';
+import { Database, Plus, Users, ImageIcon, Settings, TrendingUp } from 'lucide-react';
+
+function getTaipeiTodayRangeISO() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+
+  const y = parts.find((p) => p.type === 'year')?.value ?? '1970';
+  const m = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const d = parts.find((p) => p.type === 'day')?.value ?? '01';
+
+  const start = `${y}-${m}-${d}T00:00:00+08:00`;
+
+  const startDate = new Date(`${y}-${m}-${d}T00:00:00+08:00`);
+  const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+
+  const endY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric' }).format(endDate);
+  const endM = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', month: '2-digit' }).format(endDate);
+  const endD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', day: '2-digit' }).format(endDate);
+  const end = `${endY}-${endM}-${endD}T00:00:00+08:00`;
+
+  return { start, end };
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState({ treatments: 0, cases: 0 });
+  const [counts, setCounts] = useState({ treatments: 0, cases: 0, todayConsults: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [treatmentsRes, casesRes] = await Promise.all([
+        const { start, end } = getTaipeiTodayRangeISO();
+
+        const [treatmentsRes, casesRes, todayConsultRes] = await Promise.all([
           supabase.from('treatments').select('id', { count: 'exact', head: true }),
-          supabase.from('cases').select('id', { count: 'exact', head: true })
+          supabase.from('cases').select('id', { count: 'exact', head: true }),
+          supabase
+            .from('analytics_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_name', 'home_consult_start_click')
+            .gte('created_at', start)
+            .lt('created_at', end)
         ]);
+
+        if (treatmentsRes.error) console.error('treatments stats error:', treatmentsRes.error);
+        if (casesRes.error) console.error('cases stats error:', casesRes.error);
+        if (todayConsultRes.error) console.error('today consult stats error:', todayConsultRes.error);
+
         setCounts({
           treatments: treatmentsRes.count || 0,
-          cases: casesRes.count || 0
+          cases: casesRes.count || 0,
+          todayConsults: todayConsultRes.count || 0
         });
       } catch (err) {
-        console.error("Stats fetch error:", err);
+        console.error('Stats fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -33,7 +72,7 @@ export default function AdminDashboardPage() {
 
   const stats = [
     { label: '活動療程', value: counts.treatments.toString(), icon: Database, color: 'text-clinic-gold' },
-    { label: '今日預估諮詢', value: '8', icon: Users, color: 'text-blue-500' },
+    { label: '今日諮詢', value: counts.todayConsults.toString(), icon: Users, color: 'text-blue-500' },
     { label: '術後見證案例', value: counts.cases.toString(), icon: ImageIcon, color: 'text-clinic-rose' }
   ];
 
@@ -52,7 +91,10 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-6 group hover:shadow-xl transition-all">
+          <div
+            key={stat.label}
+            className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-6 group hover:shadow-xl transition-all"
+          >
             <div className="p-5 rounded-2xl bg-gray-50 group-hover:scale-110 transition-transform">
               <stat.icon size={32} className={stat.color} />
             </div>
@@ -71,7 +113,7 @@ export default function AdminDashboardPage() {
               <TrendingUp className="text-clinic-gold" /> 快速操作捷徑
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <button 
+              <button
                 onClick={() => router.push('/admin/treatments')}
                 className="group p-8 bg-gray-50 border border-transparent rounded-[2rem] text-left hover:bg-white hover:border-clinic-rose hover:shadow-xl transition-all"
               >
@@ -79,10 +121,12 @@ export default function AdminDashboardPage() {
                   <Plus size={32} />
                 </div>
                 <h4 className="font-black text-xl text-gray-800">管理療程項目</h4>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">新增、編輯或刪除現有的醫美服務方案，同步更新至 iPad 諮詢介面。</p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                  新增、編輯或刪除現有的醫美服務方案，同步更新至 iPad 諮詢介面。
+                </p>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => router.push('/admin/settings')}
                 className="group p-8 bg-gray-50 border border-transparent rounded-[2rem] text-left hover:bg-white hover:border-clinic-gold hover:shadow-xl transition-all"
               >
@@ -90,7 +134,9 @@ export default function AdminDashboardPage() {
                   <Settings size={32} />
                 </div>
                 <h4 className="font-black text-xl text-gray-800">品牌視覺設定</h4>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">更換診所 LOGO 與名稱，讓 iPad 系統更貼合品牌形象。</p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                  更換診所 LOGO 與名稱，讓 iPad 系統更貼合品牌形象。
+                </p>
               </button>
             </div>
           </div>
@@ -105,7 +151,9 @@ export default function AdminDashboardPage() {
             <StatusRow label="Next.js App Router" status="Deployed" color="purple" />
           </div>
           <div className="mt-8 p-6 bg-clinic-cream rounded-3xl border border-clinic-gold/10">
-            <p className="text-xs text-clinic-gold font-bold uppercase tracking-widest text-center">System v1.2 - Supabase Edition</p>
+            <p className="text-xs text-clinic-gold font-bold uppercase tracking-widest text-center">
+              System v1.2 - Supabase Edition
+            </p>
           </div>
         </div>
       </div>
@@ -113,7 +161,7 @@ export default function AdminDashboardPage() {
   );
 }
 
-function StatusRow({ label, status, color }: { label: string, status: string, color: 'green' | 'blue' | 'purple' }) {
+function StatusRow({ label, status, color }: { label: string; status: string; color: 'green' | 'blue' | 'purple' }) {
   const colors = {
     green: 'bg-green-50 text-green-600 border-green-100',
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
@@ -122,7 +170,9 @@ function StatusRow({ label, status, color }: { label: string, status: string, co
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
       <span className="text-sm font-bold text-gray-600">{label}</span>
-      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${colors[color]}`}>{status}</span>
+      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${colors[color]}`}>
+        {status}
+      </span>
     </div>
   );
 }
