@@ -1,3 +1,4 @@
+//app/consultation/recommendation/page.tsx
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -80,26 +81,26 @@ function RecommendationContent() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-6 md:p-10 bg-pattern overflow-x-hidden">
-      <header className="flex items-center justify-between mb-10 shrink-0">
-        <button onClick={() => router.back()} className="p-4 bg-white/80 backdrop-blur shadow-md rounded-2xl text-gray-400 hover:text-clinic-gold transition-all border border-white">
-          <ChevronLeft size={28} />
+    <div className="min-h-[100dvh] bg-clinic-cream flex flex-col p-4 md:p-6 lg:p-8 bg-pattern overflow-x-hidden">
+      <header className="flex items-center justify-between mb-6 shrink-0">
+        <button onClick={() => router.back()} className="p-3 md:p-4 bg-white/80 backdrop-blur shadow-md rounded-xl md:rounded-2xl text-gray-400 hover:text-clinic-gold transition-all border border-white">
+          <ChevronLeft size={24} className="md:w-7 md:h-7" />
         </button>
         <div className="text-center">
-          <h2 className="text-2xl md:text-3xl font-light text-clinic-dark tracking-[0.2em] uppercase">專業推薦方案</h2>
-          <div className="h-1 w-20 bg-clinic-gold mx-auto mt-2 rounded-full"></div>
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-light text-clinic-dark tracking-[0.2em] uppercase">專業推薦方案</h2>
+          <div className="h-1 w-full max-w-[200px] md:max-w-[280px] lg:max-w-[400px] bg-clinic-gold mx-auto mt-2 rounded-full"></div>
         </div>
-        <div className="w-12"></div>
+        <div className="w-10 md:w-12"></div>
       </header>
 
       {treatments.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-20">
-          <Sparkles size={80} className="text-gray-200 mb-6" />
-          <h3 className="text-2xl font-black text-gray-400 tracking-widest">目前此組合尚無推薦療程</h3>
-          <button onClick={() => router.push('/consultation')} className="mt-8 text-clinic-gold font-bold underline underline-offset-8">返回重新選擇</button>
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-10 md:p-20">
+          <Sparkles size={60} className="text-gray-200 mb-4" />
+          <h3 className="text-xl md:text-2xl font-black text-gray-400 tracking-widest">目前此組合尚無推薦療程</h3>
+          <button onClick={() => router.push('/consultation')} className="mt-6 text-clinic-gold font-bold underline underline-offset-8">返回重新選擇</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-12 md:gap-20 max-w-7xl mx-auto w-full pb-32">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 max-w-7xl mx-auto w-full pb-20">
           {treatments.map((t) => {
             const cheapestOption = t.treatment_price_options?.sort((a: any, b: any) => a.price - b.price)[0];
             const imageUrl = t.image_url || (t.icon_name && t.icon_name.includes('/') 
@@ -107,46 +108,62 @@ function RecommendationContent() {
               : null);
 
             return (
-              <div key={t.id} className="glass-card overflow-hidden flex flex-col lg:flex-row animate-fade-in min-h-[500px]">
-               <div className="lg:w-[45%] h-[350px] lg:h-auto relative bg-gray-50 flex items-center justify-center overflow-hidden border-r border-white/40">
-  {imageUrl ? (
-    <img 
-      src={imageUrl} 
-      alt={t.title} 
-      className="w-full h-full object-contain p-4"  // 改為 object-contain 並加上內距
-    />
-  ) : (
-    <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-4">
-      <LucideImage size={80} />
-      <span className="text-[10px] font-black">Treatment Image Reference</span>
-    </div>
-  )}
-</div>
+              <div key={t.id} className="glass-card overflow-hidden flex flex-col md:flex-row animate-fade-in min-h-[200px] md:min-h-[240px]">
+                {/* 左側圖片區 - 縮小比例 */}
+                <div className="md:w-[30%] lg:w-[25%] h-[160px] md:h-auto relative bg-gray-50 flex items-center justify-center overflow-hidden border-r border-white/40">
+                  {imageUrl ? (
+                    <img 
+                      src={imageUrl} 
+                      alt={t.title} 
+                      className="w-full h-full object-contain p-3 md:p-4"
+                    />
+                  ) : (
+                    <div className="text-center text-gray-200 uppercase tracking-widest flex flex-col items-center gap-2">
+                      <LucideImage size={40} className="md:w-12 md:h-12" />
+                      <span className="text-[8px] md:text-[10px] font-black">Treatment Image</span>
+                    </div>
+                  )}
+                </div>
 
-                <div className="lg:w-[55%] p-8 md:p-12 flex flex-col">
-                  <div className="flex justify-between items-start gap-4 mb-6 shrink-0">
+                {/* 右側內容區 - 調整內距 */}
+                <div className="md:w-[70%] lg:w-[75%] p-4 md:p-5 lg:p-6 flex flex-col">
+                  <div className="flex justify-between items-start gap-2 mb-2 shrink-0">
                     <div>
-                      <h3 className="text-3xl md:text-4xl font-black text-gray-800 tracking-tight mb-2">{t.title}</h3>
-                      <div className="flex items-center gap-2 text-clinic-gold">
-                        <Sparkles size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Radiant Recommended</span>
+                      <h3 className="text-lg md:text-xl lg:text-2xl font-black text-gray-800 tracking-tight mb-1 line-clamp-1">{t.title}</h3>
+                      <div className="flex items-center gap-1 text-clinic-gold">
+                        <Sparkles size={12} className="md:w-3 md:h-3" />
+                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em]">Radiant Recommended</span>
                       </div>
                     </div>
                     {cheapestOption && (
                       <div className="text-right">
-                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">方案最低起</p>
-                        <p className="text-3xl font-black text-clinic-gold">NT${cheapestOption.price.toLocaleString()}</p>
+                        <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">方案最低起</p>
+                        <p className="text-lg md:text-xl lg:text-2xl font-black text-clinic-gold">NT${cheapestOption.price.toLocaleString()}</p>
                       </div>
                     )}
                   </div>
                   
-                  <p className="text-gray-500 text-lg leading-relaxed mb-8 italic font-light line-clamp-3">
+                  <p className="text-gray-500 text-sm md:text-base leading-relaxed mb-2 italic font-light line-clamp-2">
                     {t.description}
                   </p>
 
-                  <div className="mt-8 pt-8 border-t border-gray-100">
-                    <Link href={`/treatments/${t.id}`} className="btn-gold w-full py-5 text-lg tracking-widest uppercase font-black">
-                      查看療程細節 <ArrowRight size={20} />
+                  {/* 療程標籤 - 可選的簡單資訊 */}
+                  {t.treatment_price_options && t.treatment_price_options.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {t.treatment_price_options.slice(0, 3).map((opt: any, idx: number) => (
+                        <span key={idx} className="text-[8px] md:text-[10px] bg-clinic-gold/10 text-clinic-gold px-2 py-0.5 rounded-full">
+                          {opt.label || `${opt.sessions || 1}堂`}
+                        </span>
+                      ))}
+                      {t.treatment_price_options.length > 3 && (
+                        <span className="text-[8px] md:text-[10px] text-gray-400">+{t.treatment_price_options.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="mt-auto pt-2">
+                    <Link href={`/treatments/${t.id}`} className="inline-flex items-center gap-1 text-clinic-gold hover:gap-2 transition-all text-xs md:text-sm font-black uppercase tracking-wider">
+                      查看療程細節 <ArrowRight size={14} className="md:w-4 md:h-4" />
                     </Link>
                   </div>
                 </div>
