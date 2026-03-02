@@ -1,8 +1,10 @@
+// app/page.tsx
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, ChevronRight, MapPin, Clock } from 'lucide-react';
+import { Sparkles, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import HomeConsultStartLink from '@/components/HomeConsultStartLink';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,31 +22,36 @@ export default async function HomePage() {
     acc[curr.key] = curr.value;
     return acc;
   }, {});
-  
+
   const clinicName = systemTexts['home_title'] || settings?.clinic_name || '亮立美學';
   const logoUrl = settings?.logo_url;
   const version = settings?.updated_at ? new Date(settings.updated_at).getTime() : Date.now();
 
+  const startBtnLabel = systemTexts['home_start_btn'] || '開始專業諮詢';
+
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
       <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-clinic-rose/20 blur-3xl animate-float"></div>
-      <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+      <div
+        className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float"
+        style={{ animationDelay: '2s' }}
+      ></div>
 
       <div className="z-10 w-full max-w-4xl flex flex-col items-center animate-fade-in">
         <div className="mb-12 text-center">
-         <div className="relative inline-block mb-8">
-  <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
-    <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
-      {logoUrl ? (
-        <img src={`${logoUrl}?v=${version}`} alt={clinicName} className="w-full h-full object-cover" />
-      ) : (
-        <Sparkles size={64} className="text-clinic-gold" />
-      )}
-    </div>
-  </div>
-  {/* 這整個 <div> 刪掉 */}
-</div>
-          
+          <div className="relative inline-block mb-8">
+            <div className="w-40 h-40 rounded-full bg-white shadow-2xl flex items-center justify-center border-4 border-white p-2">
+              <div className="w-full h-full rounded-full overflow-hidden bg-clinic-rose/5 flex items-center justify-center">
+                {logoUrl ? (
+                  <img src={`${logoUrl}?v=${version}`} alt={clinicName} className="w-full h-full object-cover" />
+                ) : (
+                  <Sparkles size={64} className="text-clinic-gold" />
+                )}
+              </div>
+            </div>
+            {/* 這整個 <div> 刪掉 */}
+          </div>
+
           <h1 className="text-6xl font-light tracking-[0.3em] text-clinic-dark mb-4 transition-all uppercase text-center">
             {clinicName}
           </h1>
@@ -57,18 +64,13 @@ export default async function HomePage() {
 
         <div className="glass-card p-10 w-full max-w-2xl flex flex-col items-center text-center space-y-8 border-white/60">
           <div className="text-gray-500 text-lg font-light leading-relaxed text-center">
-  <p>美得不著痕跡，是最高級的愛自己</p>
-  <p className="mt-2">亮立美學，為妳立下美的標竿</p>
-</div>
-          
-          <Link 
-  href="/consultation"
-  className="btn-gold text-base sm:text-lg md:text-2xl px-6 sm:px-8 md:px-12 py-4 sm:py-5 md:py-6 w-full max-w-md shadow-clinic-gold/20 flex items-center justify-center gap-2 sm:gap-3 md:gap-4 group whitespace-nowrap"
->
-  {systemTexts['home_start_btn']}
-  <ChevronRight size={20} className="sm:w-6 sm:h-6 md:w-8 md:h-8 group-hover:translate-x-2 transition-transform" />
-</Link>
-          
+            <p>美得不著痕跡，是最高級的愛自己</p>
+            <p className="mt-2">亮立美學，為妳立下美的標竿</p>
+          </div>
+
+          {/* ✅ UI 不動：用 Client 元件包住原本的 Link 外觀，點擊會記錄事件 */}
+          <HomeConsultStartLink label={startBtnLabel} />
+
           <div className="flex items-center gap-8 pt-4">
             <div className="flex items-center gap-2 text-gray-400 text-sm">
               <MapPin size={16} className="text-clinic-rose" />
@@ -81,10 +83,13 @@ export default async function HomePage() {
           </div>
         </div>
       </div>
-      
+
       <div className="absolute bottom-8 flex flex-col items-center gap-2 text-gray-400">
         <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Dynamic Asset Management | v2.0</p>
-        <Link href="/admin/login" className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30">
+        <Link
+          href="/admin/login"
+          className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30"
+        >
           管理員安全存取
         </Link>
       </div>
