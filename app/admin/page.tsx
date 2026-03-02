@@ -67,6 +67,7 @@ export default function AdminDashboardPage() {
         setLoading(false);
       }
     };
+
     fetchStats();
   }, []);
 
@@ -91,10 +92,7 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-6 group hover:shadow-xl transition-all"
-          >
+          <div key={stat.label} className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-6 group hover:shadow-xl transition-all">
             <div className="p-5 rounded-2xl bg-gray-50 group-hover:scale-110 transition-transform">
               <stat.icon size={32} className={stat.color} />
             </div>
@@ -121,9 +119,7 @@ export default function AdminDashboardPage() {
                   <Plus size={32} />
                 </div>
                 <h4 className="font-black text-xl text-gray-800">管理療程項目</h4>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  新增、編輯或刪除現有的醫美服務方案，同步更新至 iPad 諮詢介面。
-                </p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">新增、編輯或刪除現有的醫美服務方案，同步更新至 iPad 諮詢介面。</p>
               </button>
 
               <button
@@ -134,9 +130,7 @@ export default function AdminDashboardPage() {
                   <Settings size={32} />
                 </div>
                 <h4 className="font-black text-xl text-gray-800">品牌視覺設定</h4>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  更換診所 LOGO 與名稱，讓 iPad 系統更貼合品牌形象。
-                </p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">更換診所 LOGO 與名稱，讓 iPad 系統更貼合品牌形象。</p>
               </button>
             </div>
           </div>
@@ -151,9 +145,7 @@ export default function AdminDashboardPage() {
             <StatusRow label="Next.js App Router" status="Deployed" color="purple" />
           </div>
           <div className="mt-8 p-6 bg-clinic-cream rounded-3xl border border-clinic-gold/10">
-            <p className="text-xs text-clinic-gold font-bold uppercase tracking-widest text-center">
-              System v1.2 - Supabase Edition
-            </p>
+            <p className="text-xs text-clinic-gold font-bold uppercase tracking-widest text-center">System v1.2 - Supabase Edition</p>
           </div>
         </div>
       </div>
@@ -170,9 +162,7 @@ function StatusRow({ label, status, color }: { label: string; status: string; co
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
       <span className="text-sm font-bold text-gray-600">{label}</span>
-      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${colors[color]}`}>
-        {status}
-      </span>
+      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${colors[color]}`}>{status}</span>
     </div>
   );
 }
