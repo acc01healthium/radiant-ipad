@@ -32,10 +32,7 @@ export default async function HomePage() {
   return (
     <div className="h-screen flex flex-col items-center justify-center p-6 bg-clinic-cream relative overflow-hidden bg-pattern">
       <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-clinic-rose/20 blur-3xl animate-float"></div>
-      <div
-        className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float"
-        style={{ animationDelay: '2s' }}
-      ></div>
+      <div className="absolute top-1/2 -right-24 w-80 h-80 rounded-full bg-clinic-gold/10 blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
 
       <div className="z-10 w-full max-w-4xl flex flex-col items-center animate-fade-in">
         <div className="mb-12 text-center">
@@ -68,7 +65,7 @@ export default async function HomePage() {
             <p className="mt-2">亮立美學，為妳立下美的標竿</p>
           </div>
 
-          {/* ✅ UI 不動：用 Client 元件包住原本的 Link 外觀，點擊會記錄事件 */}
+          {/* ✅ 這顆就是「開始專業諮詢」按鈕：點擊會記錄事件，再導頁 */}
           <HomeConsultStartLink label={startBtnLabel} />
 
           <div className="flex items-center gap-8 pt-4">
@@ -86,10 +83,7 @@ export default async function HomePage() {
 
       <div className="absolute bottom-8 flex flex-col items-center gap-2 text-gray-400">
         <p className="text-[10px] tracking-[0.3em] font-black uppercase opacity-40">Dynamic Asset Management | v2.0</p>
-        <Link
-          href="/admin/login"
-          className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30"
-        >
+        <Link href="/admin/login" className="text-xs hover:text-clinic-gold transition-colors underline underline-offset-8 decoration-clinic-gold/30">
           管理員安全存取
         </Link>
       </div>
